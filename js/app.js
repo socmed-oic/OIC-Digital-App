@@ -96,6 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
         hubView.classList.add('active');
     });
 
+    // Initialize Flatpickr Date Range
+    flatpickr("#date-range-picker", {
+        mode: "range",
+        dateFormat: "d M Y",
+        defaultDate: [new Date(new Date().setDate(new Date().getDate() - 7)), new Date()]
+    });
+
     // =========================================================================
     // 3. META ADS CHART.JS CONFIGURATION (Empty States)
     // =========================================================================

@@ -10,6 +10,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- SheetJS for XLS/XLSX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Flatpickr for Date Range -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -132,11 +136,9 @@
                 </div>
                 <div class="topbar-right">
                     <!-- Functional Date Range Calendar -->
-                    <div class="glass-pill date-picker-container">
+                    <div class="glass-pill date-picker-container" id="date-picker-btn" style="cursor: pointer;">
                         <i class="fa-regular fa-calendar" style="color: rgba(255,255,255,0.7);"></i>
-                        <input type="date" id="date-start" class="glass-date-input">
-                        <span style="color: rgba(255,255,255,0.5);">to</span>
-                        <input type="date" id="date-end" class="glass-date-input">
+                        <input type="text" id="date-range-picker" class="glass-date-input" placeholder="Select date range..." readonly style="cursor: pointer; width: 190px;">
                     </div>
                 </div>
             </header>
