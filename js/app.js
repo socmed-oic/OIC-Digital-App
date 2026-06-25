@@ -441,12 +441,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     const workbook = XLSX.read(data, {type: 'array'});
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
+                    
+                    // Parse as a 2D array first to find the real header row
+                    const rawRows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
+                    
+                    if (rawRows.length === 0) {
+                        alert('The file appears to be empty.');
+                        return;
+                    }
+                    
+                    // Find the first row that actually looks like a header row (has multiple columns and keywords)
+                    let headerRowIndex = 0;
+                    for (let i = 0; i < rawRows.length; i++) {
+                        const row = rawRows[i];
+                        if (row.length > 3 && (row.includes('Amount Spent') || row.includes('Impressions') || row.includes('Campaign name') || row.includes('Nama Campaign'))) {
+                            headerRowIndex = i;
+                            break;
+                        }
+                    }
+                    
+                    // Reparse using the correct header row
+                    const json = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIndex, defval: ""});
                     
                     if (json.length > 0) { 
                         handleParsedData(json, Object.keys(json[0]), file.name); 
                     } else { 
-                        alert('The file appears to be empty.'); 
+                        alert('No valid data found below the headers.'); 
                     }
                 } catch(err) {
                     console.error("Parse Error:", err);
