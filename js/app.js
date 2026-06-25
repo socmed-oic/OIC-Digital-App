@@ -384,37 +384,81 @@ document.addEventListener('DOMContentLoaded', () => {
             return num.toFixed(1);
         }
 
-        function handleParsedData(data, columns, filename) {
-            currentParsedData = data;
-            let blankCount = 0;
+        let globalChartInstance = null;
+        function renderDayToDayChart(filteredData) {
+            const ctx = document.getElementById('day-to-day-chart');
+            if (!ctx) return;
+            
+            // Group data by date
+            const dateMap = {};
+            filteredData.forEach(row => {
+                let rawDate = row['Ends'] || row['Reporting Ends'] || '';
+                if (!rawDate || rawDate === '-') return;
+                
+                // Convert Excel serial date
+                let dateStr = rawDate;
+                if (!isNaN(rawDate)) {
+                    const dateObj = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
+                    dateStr = dateObj.toLocaleDateString();
+                }
+
+                if (!dateMap[dateStr]) dateMap[dateStr] = { reach: 0, clicks: 0, impressions: 0 };
+                dateMap[dateStr].reach += parseFloat(row['Reach']) || 0;
+                dateMap[dateStr].impressions += parseFloat(row['Impressions']) || 0;
+                dateMap[dateStr].clicks += parseFloat(row['Clicks All'] || row['Click Link']) || 0;
+            });
+
+            const labels = Object.keys(dateMap).sort(); // Sort chronologically (rough)
+            const reachData = labels.map(l => dateMap[l].reach);
+            const clicksData = labels.map(l => dateMap[l].clicks);
+            const impData = labels.map(l => dateMap[l].impressions);
+
+            if (globalChartInstance) {
+                globalChartInstance.destroy();
+            }
+
+            globalChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Reach', data: reachData, borderColor: '#a78bfa', tension: 0.4 },
+                        { label: 'Clicks', data: clicksData, borderColor: '#34d399', tension: 0.4 },
+                        { label: 'Impressions', data: impData, borderColor: '#fbbf24', tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: {
+                        x: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        y: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+                    }
+                }
+            });
+        }
+
+        function filterDataAndRender() {
+            if (!currentParsedData) return;
+            const campaignFilter = document.getElementById('filter-campaign')?.value || 'all';
+            
+            let filtered = currentParsedData;
+            if (campaignFilter !== 'all') {
+                filtered = filtered.filter(row => row['Nama Campaign'] === campaignFilter || row['Campaign name'] === campaignFilter);
+            }
+
             let totalSpend = 0;
             let totalImpressions = 0;
             let totalClicks = 0;
 
-            data.forEach(row => {
-                columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
-                
-                // Meta CSV/Excel parsing
+            filtered.forEach(row => {
                 if (row['Amount Spent']) totalSpend += parseFloat(row['Amount Spent']) || 0;
                 if (row['Impressions']) totalImpressions += parseFloat(row['Impressions']) || 0;
                 if (row['Clicks All']) totalClicks += parseFloat(row['Clicks All']) || 0;
-                else if (row['Click Link']) totalClicks += parseFloat(row['Click Link']) || 0; // Fallback
+                else if (row['Click Link']) totalClicks += parseFloat(row['Click Link']) || 0;
             });
 
-            currentDataProfile = {
-                filename: filename, totalRows: data.length, columns: columns, blankCellsFound: blankCount, sampleData: data.slice(0, 5)
-            };
-
-            const datasetStats = document.getElementById('dataset-stats');
-            if(datasetStats) datasetStats.textContent = `${data.length} Rows Loaded`;
-            
-            if(uploadZone) uploadZone.style.display = 'none';
-            if(chatInterface) chatInterface.style.display = 'flex';
-
-            chatHistory = [];
-            addChatMessage('AI', `I've successfully loaded **${filename}**. It contains ${data.length} rows and ${columns.length} columns. I detected ${blankCount} blank cells. How would you like to process this Meta Ads data before syncing to the database?`);
-            
-            // Calculate KPIs
             const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : 0;
             const avgCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
 
@@ -429,6 +473,85 @@ document.addEventListener('DOMContentLoaded', () => {
             if(cpcEl) cpcEl.textContent = `Rp ${formatNumber(avgCpc)}`;
             
             document.querySelectorAll('.trend').forEach(el => el.textContent = 'Previewing Local Data');
+
+            renderDayToDayChart(filtered);
+
+            // Populate Report Module
+            const reportSpend = document.getElementById('report-spend');
+            const reportImp = document.getElementById('report-imp');
+            const reportClicks = document.getElementById('report-clicks');
+            const reportCpc = document.getElementById('report-cpc');
+            
+            if(reportSpend) reportSpend.textContent = `Rp ${formatNumber(totalSpend)}`;
+            if(reportImp) reportImp.textContent = `${formatNumber(totalImpressions)}`;
+            if(reportClicks) reportClicks.textContent = `${formatNumber(totalClicks)}`;
+            if(reportCpc) reportCpc.textContent = `Rp ${formatNumber(avgCpc)}`;
+
+            const reportTableBody = document.getElementById('report-table-body');
+            if (reportTableBody) {
+                reportTableBody.innerHTML = '';
+                filtered.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+                    
+                    const cName = row['Nama Campaign'] || row['Campaign name'] || 'Unknown';
+                    const sSpent = parseFloat(row['Amount Spent']) || 0;
+                    const sImp = parseFloat(row['Impressions']) || 0;
+                    const sClicks = parseFloat(row['Clicks All'] || row['Click Link']) || 0;
+                    const sCpc = sClicks > 0 ? (sSpent / sClicks).toFixed(1) : 0;
+
+                    tr.innerHTML = `
+                        <td style="padding: 12px 8px;">${cName}</td>
+                        <td style="padding: 12px 8px;">Rp ${formatNumber(sSpent)}</td>
+                        <td style="padding: 12px 8px;">${formatNumber(sImp)}</td>
+                        <td style="padding: 12px 8px;">${formatNumber(sClicks)}</td>
+                        <td style="padding: 12px 8px;">Rp ${formatNumber(parseFloat(sCpc))}</td>
+                    `;
+                    reportTableBody.appendChild(tr);
+                });
+            }
+        }
+
+        function handleParsedData(data, columns, filename) {
+            // Filter out 'TOTAL' rows immediately
+            currentParsedData = data.filter(row => {
+                const name = row['Nama Campaign'] || row['Campaign name'] || '';
+                return !name.toUpperCase().includes('TOTAL');
+            });
+
+            let blankCount = 0;
+            currentParsedData.forEach(row => {
+                columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
+            });
+
+            // Populate Dropdowns
+            const campaignSelect = document.getElementById('filter-campaign');
+            if (campaignSelect) {
+                const uniqueCampaigns = [...new Set(currentParsedData.map(r => r['Nama Campaign'] || r['Campaign name']).filter(Boolean))];
+                campaignSelect.innerHTML = '<option value="all">All Campaigns</option>';
+                uniqueCampaigns.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.textContent = c;
+                    campaignSelect.appendChild(opt);
+                });
+                campaignSelect.addEventListener('change', filterDataAndRender);
+            }
+
+            currentDataProfile = {
+                filename: filename, totalRows: currentParsedData.length, columns: columns, blankCellsFound: blankCount, sampleData: currentParsedData.slice(0, 5)
+            };
+
+            const datasetStats = document.getElementById('dataset-stats');
+            if(datasetStats) datasetStats.textContent = `${currentParsedData.length} Rows Loaded`;
+            
+            if(uploadZone) uploadZone.style.display = 'none';
+            if(chatInterface) chatInterface.style.display = 'flex';
+
+            chatHistory = [];
+            addChatMessage('AI', `I've successfully loaded **${filename}**. I removed the "TOTAL" row to prevent skewing charts. It contains ${currentParsedData.length} clean rows. How would you like to process this Meta Ads data?`);
+            
+            filterDataAndRender();
         }
 
         function processFile(file) {
@@ -548,6 +671,96 @@ document.addEventListener('DOMContentLoaded', () => {
                     triggerSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
                     triggerSyncBtn.style.background = 'rgba(254,202,202,0.9)';
                     addChatMessage('AI', 'Sync failed. Please verify your Webhook URL is correct and deployed as a Web App.');
+                }
+            });
+        }
+        }
+        
+        // ==========================================
+        // REPORTING MODULE LOGIC
+        // ==========================================
+        const adsTab = document.getElementById('sidebar-ads-tab');
+        const repTab = document.getElementById('sidebar-reports-tab');
+        const adsModule = document.getElementById('ads-module');
+        const repModule = document.getElementById('report-module');
+
+        if (adsTab && repTab) {
+            adsTab.addEventListener('click', () => {
+                adsTab.classList.add('active');
+                repTab.classList.remove('active');
+                adsModule.style.display = 'block';
+                repModule.style.display = 'none';
+            });
+            repTab.addEventListener('click', () => {
+                repTab.classList.add('active');
+                adsTab.classList.remove('active');
+                adsModule.style.display = 'none';
+                repModule.style.display = 'block';
+            });
+        }
+
+        const btnExportPdf = document.getElementById('btn-export-pdf');
+        if (btnExportPdf) {
+            btnExportPdf.addEventListener('click', () => {
+                const element = document.getElementById('printable-report');
+                const opt = {
+                    margin:       0.5,
+                    filename:     'Campaign_Report.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, backgroundColor: '#1a1a2e' },
+                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+                };
+                btnExportPdf.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+                html2pdf().set(opt).from(element).save().then(() => {
+                    btnExportPdf.innerHTML = '<i class="fa-solid fa-download"></i> Export PDF';
+                });
+            });
+        }
+
+        const btnAiSummary = document.getElementById('btn-generate-ai-summary');
+        if (btnAiSummary) {
+            btnAiSummary.addEventListener('click', async () => {
+                if (!geminiApiKey) {
+                    alert('Please save your Gemini API Key in the Ads Configuration module first!');
+                    return;
+                }
+                
+                btnAiSummary.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+                
+                const tableText = Array.from(document.querySelectorAll('#report-table-body tr')).map(tr => 
+                    Array.from(tr.querySelectorAll('td')).map(td => td.textContent).join(' | ')
+                ).join('\n');
+
+                const prompt = `You are an expert Meta Ads Analyst. Here is a report of our campaign performance:
+                Total Spend: ${document.getElementById('report-spend').textContent}
+                Total Impressions: ${document.getElementById('report-imp').textContent}
+                Total Clicks: ${document.getElementById('report-clicks').textContent}
+                Avg CPC: ${document.getElementById('report-cpc').textContent}
+                
+                Campaign Breakdown:
+                ${tableText}
+                
+                Write a 3-paragraph executive summary outlining the best performing campaigns, areas of concern, and actionable recommendations. Format the output in clean Markdown.`;
+
+                try {
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to reach Gemini');
+                    const data = await response.json();
+                    
+                    let aiText = data.candidates[0].content.parts[0].text;
+                    aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+                    
+                    document.getElementById('report-ai-summary').style.display = 'block';
+                    document.getElementById('report-ai-text').innerHTML = aiText;
+                    btnAiSummary.innerHTML = '<i class="fa-solid fa-check"></i> Summary Generated';
+                } catch(e) {
+                    alert('Error generating summary. Check API Key.');
+                    btnAiSummary.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate Summary';
                 }
             });
         }

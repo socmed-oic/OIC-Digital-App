@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- SheetJS for XLS/XLSX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Flatpickr for Date Range -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -27,8 +28,11 @@
                 <img src="img/logo.png" alt="OIC Logo">
             </div>
             <ul class="nav-links">
-                <li class="active" id="sidebar-active-module">
+                <li class="active" id="sidebar-ads-tab">
                     <i class="fa-solid fa-rocket"></i><span>Meta Ads</span>
+                </li>
+                <li id="sidebar-reports-tab">
+                    <i class="fa-solid fa-file-invoice"></i><span>Reporting</span>
                 </li>
             </ul>
             <div class="sidebar-bottom">
@@ -76,26 +80,20 @@
                         <i class="fa-solid fa-filter" style="color: rgba(255,255,255,0.5);"></i>
                         <span style="font-weight: 500; margin-right: 8px;">Filter by:</span>
                         
-                        <select class="glass-select">
+                        <select class="glass-select" id="filter-campaign">
                             <option value="all">All Campaigns</option>
-                            <option value="c1">Summer Sale 2026</option>
-                            <option value="c2">Brand Awareness Q3</option>
                         </select>
                         
                         <i class="fa-solid fa-chevron-right" style="color: rgba(255,255,255,0.3); font-size: 0.8rem;"></i>
                         
-                        <select class="glass-select">
+                        <select class="glass-select" id="filter-adset">
                             <option value="all">All Ad Sets</option>
-                            <option value="s1">Lookalike 1%</option>
-                            <option value="s2">Retargeting 30d</option>
                         </select>
                         
                         <i class="fa-solid fa-chevron-right" style="color: rgba(255,255,255,0.3); font-size: 0.8rem;"></i>
                         
-                        <select class="glass-select">
+                        <select class="glass-select" id="filter-ad">
                             <option value="all">All Ads</option>
-                            <option value="a1">Video - V1</option>
-                            <option value="a2">Carousel - Top Products</option>
                         </select>
                         
                         <button id="pull-master-data-btn" class="glass-btn" style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);">
@@ -140,15 +138,15 @@
                         </div>
 
                         <!-- Meta Charts -->
-                        <div class="glass-card col-span-3 row-span-2">
+                        <div class="glass-card col-span-4">
                             <div class="card-header">
-                                <h3>Demographics Performance</h3>
+                                <h3>Day-to-Day Performance</h3>
                                 <div class="glass-pill-group">
-                                    <button class="glass-tab active">Age & Gender</button>
+                                    <button class="glass-tab active">Metrics Over Time</button>
                                 </div>
                             </div>
                             <div class="chart-wrapper" style="height: 300px;">
-                                <canvas id="demoChart"></canvas>
+                                <canvas id="day-to-day-chart"></canvas>
                             </div>
                         </div>
 
@@ -168,6 +166,19 @@
                             </div>
                             <div class="chart-wrapper" style="height: 250px;">
                                 <canvas id="placementChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Demographics (Moved Down) -->
+                        <div class="glass-card col-span-4 row-span-2">
+                            <div class="card-header">
+                                <h3>Demographics Performance</h3>
+                                <div class="glass-pill-group">
+                                    <button class="glass-tab active">Age & Gender</button>
+                                </div>
+                            </div>
+                            <div class="chart-wrapper" style="height: 300px;">
+                                <canvas id="demoChart"></canvas>
                             </div>
                         </div>
 
@@ -229,12 +240,81 @@
                     </div>
                 </section>
 
+                <!-- 2. REPORTING MODULE (Hidden by default) -->
+                <section id="report-module" class="module-section" style="display: none;">
+                    <div class="glass-card" style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h2 style="font-size: 1.5rem; letter-spacing: 0.5px;"><i class="fa-solid fa-file-invoice" style="color: #60a5fa; margin-right: 12px;"></i> Campaign Performance Report</h2>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 0.95rem; margin-top: 4px;">Live preview of your filtered data.</p>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="btn-generate-ai-summary" class="glass-btn" style="background: rgba(167, 139, 250, 0.2); border: 1px solid rgba(167, 139, 250, 0.4);">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate Summary
+                            </button>
+                            <button id="btn-export-pdf" class="glass-btn primary">
+                                <i class="fa-solid fa-download"></i> Export PDF
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="printable-report" class="glass-card" style="padding: 40px; background: rgba(255,255,255,0.05);">
+                        <div style="text-align: center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 20px; margin-bottom: 24px;">
+                            <h1 style="font-size: 2rem;">Executive Ads Report</h1>
+                            <p style="color: rgba(255,255,255,0.6);" id="report-date-range">Generated Live</p>
+                        </div>
+                        
+                        <div id="report-ai-summary" style="margin-bottom: 32px; display: none; padding: 20px; background: rgba(167, 139, 250, 0.1); border-left: 4px solid #a78bfa; border-radius: 4px;">
+                            <h3 style="color: #a78bfa; margin-bottom: 12px;"><i class="fa-solid fa-robot"></i> AI Executive Summary</h3>
+                            <div id="report-ai-text" style="line-height: 1.6;"></div>
+                        </div>
+
+                        <div class="config-grid" style="margin-bottom: 32px;">
+                            <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 16px;">
+                                <h4 style="color: rgba(255,255,255,0.5); margin-bottom: 8px;">Total Spend</h4>
+                                <h2 id="report-spend">Rp 0</h2>
+                            </div>
+                            <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 16px;">
+                                <h4 style="color: rgba(255,255,255,0.5); margin-bottom: 8px;">Total Impressions</h4>
+                                <h2 id="report-imp">0</h2>
+                            </div>
+                            <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 16px;">
+                                <h4 style="color: rgba(255,255,255,0.5); margin-bottom: 8px;">Total Clicks</h4>
+                                <h2 id="report-clicks">0</h2>
+                            </div>
+                            <div class="glass-card" style="background: rgba(255,255,255,0.02); padding: 16px;">
+                                <h4 style="color: rgba(255,255,255,0.5); margin-bottom: 8px;">Average CPC</h4>
+                                <h2 id="report-cpc">Rp 0</h2>
+                            </div>
+                        </div>
+
+                        <h3 style="margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px;">Campaign Breakdown</h3>
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.3);">
+                                        <th style="padding: 12px 8px;">Campaign Name</th>
+                                        <th style="padding: 12px 8px;">Spend</th>
+                                        <th style="padding: 12px 8px;">Impressions</th>
+                                        <th style="padding: 12px 8px;">Clicks</th>
+                                        <th style="padding: 12px 8px;">CPC</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-table-body">
+                                    <tr><td colspan="5" style="padding: 16px; text-align: center; color: rgba(255,255,255,0.5);">No data loaded.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
             </div>
         </main>
     </div>
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- App Logic -->
     <script src="js/app.js"></script>
 </body>

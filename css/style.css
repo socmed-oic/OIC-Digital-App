@@ -440,13 +440,15 @@ h1, h2, h3, h4, h5, h6 {
     gap: 12px;
     padding: 8px 16px;
 }
-.glass-date-input {
-    background: transparent;
-    border: none;
+.glass-date-input, .flatpickr-input {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
     color: white;
     font-family: inherit;
     font-weight: 500;
-    outline: none;
+    outline: none !important;
+    -webkit-appearance: none;
 }
 .glass-date-input::-webkit-calendar-picker-indicator {
     filter: invert(1);
@@ -724,6 +726,10 @@ span.flatpickr-weekday {
 .flatpickr-calendar.arrowBottom:before,
 .flatpickr-calendar.arrowBottom:after {
     display: none !important;
+}
+.flatpickr-monthDropdown-months, .flatpickr-monthDropdown-months option {
+    color: #333 !important;
+    background: #fff !important;
 }
 
 /* Responsive */
