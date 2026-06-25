@@ -356,7 +356,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sidebar-logo img {
-    height: 45px;
+    height: 80px;
+    max-width: 100%;
+    object-fit: contain;
     filter: brightness(0) invert(1);
     margin-bottom: 48px;
     display: block;
