@@ -45,11 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
     enterBtn.addEventListener('click', () => {
         if (currentPin.length === 4) {
             if (currentPin === CORRECT_PIN) {
-                // Success
                 loginView.classList.remove('active');
                 hubView.classList.add('active');
             } else {
-                // Error
                 errorMsg.textContent = 'Incorrect PIN';
                 pinDots.forEach(dot => dot.classList.add('error'));
                 setTimeout(() => {
@@ -61,141 +59,55 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =========================================================================
-    // 2. NAVIGATION (HUB & SIDEBAR)
+    // 2. STANDALONE NAVIGATION (Hub & Exit)
     // =========================================================================
     const hubCards = document.querySelectorAll('.hub-card');
-    const navLinks = document.querySelectorAll('.nav-links li');
     const moduleSections = document.querySelectorAll('.module-section');
     const currentModuleTitle = document.getElementById('current-module-title');
+    const sidebarActiveModule = document.getElementById('sidebar-active-module');
     const backToHubBtn = document.getElementById('back-to-hub');
 
-    function showModule(targetId, title) {
-        // Hide all modules
-        moduleSections.forEach(section => section.classList.remove('active'));
-        
-        // Show target module
-        const targetModule = document.getElementById(targetId);
-        if (targetModule) targetModule.classList.add('active');
-        
-        // Update Title
-        if (title) currentModuleTitle.textContent = title;
-
-        // Update sidebar active state
-        navLinks.forEach(link => {
-            if (link.dataset.target === targetId) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
-        });
-    }
-
-    // Hub Click
     hubCards.forEach(card => {
         card.addEventListener('click', () => {
             const targetId = card.dataset.module;
-            const title = card.querySelector('h3').textContent;
+            const title = card.dataset.title;
+            const iconClass = card.dataset.icon;
+            
+            // Show Dashboard View
             hubView.classList.remove('active');
             dashboardView.classList.add('active');
-            showModule(targetId, title);
+            
+            // Hide all modules, show target
+            moduleSections.forEach(section => section.classList.remove('active'));
+            const targetModule = document.getElementById(targetId);
+            if (targetModule) targetModule.classList.add('active');
+            
+            // Update Title
+            currentModuleTitle.textContent = title;
+
+            // Update static sidebar content
+            sidebarActiveModule.innerHTML = `<i class="fa-solid ${iconClass}"></i><span>${title.split(' ')[0]}</span>`;
         });
     });
 
-    // Sidebar Click
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            const targetId = link.dataset.target;
-            const title = link.getAttribute('title') || link.querySelector('span').textContent;
-            showModule(targetId, title);
-        });
-    });
-
-    // Back to Hub
+    // Exit to Hub
     backToHubBtn.addEventListener('click', () => {
         dashboardView.classList.remove('active');
         hubView.classList.add('active');
     });
 
     // =========================================================================
-    // 3. REAL-TIME CLOCK
+    // 3. META ADS CHART.JS CONFIGURATION (Empty States)
     // =========================================================================
-    const datePill = document.getElementById('topbar-date');
-    function updateClock() {
-        if (!datePill) return;
-        const now = new Date();
-        const options = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
-        datePill.textContent = now.toLocaleDateString('en-GB', options);
-    }
-    setInterval(updateClock, 60000);
-    updateClock();
-
-    // =========================================================================
-    // 4. GOOGLE SHEETS INTEGRATION (Ads Module)
-    // =========================================================================
-    const connectBtn = document.getElementById('connect-sheets');
-    const urlInput = document.getElementById('sheet-url-input');
-    const sheetsStatus = document.getElementById('sheets-status');
-
-    class SheetsManager {
-        static extractSheetId(url) {
-            const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
-            return match ? match[1] : null;
-        }
-
-        static async connect(url) {
-            const sheetId = this.extractSheetId(url);
-            if (!sheetId) throw new Error('Invalid Google Sheets URL');
-
-            const queryUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json`;
-            
-            const response = await fetch(queryUrl);
-            const text = await response.text();
-            
-            // Remove the google visualization wrapper
-            const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-            const data = JSON.parse(jsonStr);
-            
-            return data.table;
-        }
-    }
-
-    if (connectBtn) {
-        connectBtn.addEventListener('click', async () => {
-            const url = urlInput.value.trim();
-            if (!url) return;
-
-            sheetsStatus.className = 'sheets-status';
-            sheetsStatus.textContent = 'Connecting...';
-            sheetsStatus.style.color = '#fbbf24';
-
-            try {
-                const table = await SheetsManager.connect(url);
-                sheetsStatus.className = 'sheets-status connected';
-                sheetsStatus.textContent = `Connected — ${table.rows.length} rows loaded`;
-                sheetsStatus.style.color = ''; // Use CSS class color
-                console.log('Sheets Data Loaded:', table);
-            } catch (err) {
-                sheetsStatus.className = 'sheets-status disconnected';
-                sheetsStatus.textContent = 'Connection failed';
-                sheetsStatus.style.color = '';
-                console.error(err);
-            }
-        });
-    }
-
-    // =========================================================================
-    // 5. CHART.JS CONFIGURATION (Spatial Aesthetic)
-    // =========================================================================
-    // To match the brown gradient glassmorphism, we use whites and translucent whites
     const GLASS_COLORS = {
         white: '#ffffff',
         white70: 'rgba(255, 255, 255, 0.7)',
         white30: 'rgba(255, 255, 255, 0.3)',
         white10: 'rgba(255, 255, 255, 0.1)',
-        white05: 'rgba(255, 255, 255, 0.05)',
         accentRed: '#fca5a5',
         accentGreen: '#86efac',
-        accentGold: '#fde047'
+        accentGold: '#fde047',
+        accentPurple: '#a78bfa'
     };
 
     Chart.defaults.color = GLASS_COLORS.white70;
@@ -204,17 +116,9 @@ document.addEventListener('DOMContentLoaded', () => {
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.plugins.legend.labels.boxWidth = 8;
     
-    // Global scales for glassmorphism
     const glassScales = {
-        x: {
-            grid: { display: false },
-            border: { display: false }
-        },
-        y: {
-            grid: { color: GLASS_COLORS.white10 },
-            border: { display: false },
-            beginAtZero: true
-        }
+        x: { grid: { display: false }, border: { display: false } },
+        y: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true }
     };
 
     function tryCreateChart(id, config) {
@@ -223,22 +127,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // a) Ads Performance (Bar)
-    tryCreateChart('adsChart', {
+    // a) Demographics (Age & Gender)
+    const demoChart = tryCreateChart('demoChart', {
         type: 'bar',
         data: {
-            labels: ['Google', 'Meta', 'TikTok', 'LinkedIn'],
+            labels: ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
             datasets: [
                 {
-                    label: 'Clicks (K)',
-                    data: [150, 210, 320, 85],
+                    label: 'Female',
+                    data: [0, 0, 0, 0, 0, 0], // Empty state
                     backgroundColor: GLASS_COLORS.white,
                     borderRadius: 20,
                     barThickness: 12
                 },
                 {
-                    label: 'Spend (M)',
-                    data: [25, 32, 41, 18],
+                    label: 'Male',
+                    data: [0, 0, 0, 0, 0, 0], // Empty state
                     backgroundColor: GLASS_COLORS.white30,
                     borderRadius: 20,
                     barThickness: 12
@@ -249,18 +153,18 @@ document.addEventListener('DOMContentLoaded', () => {
             responsive: true,
             maintainAspectRatio: false,
             scales: glassScales,
-            plugins: { legend: { display: false } } // Handled via custom HTML tabs
+            plugins: { legend: { position: 'top' } }
         }
     });
 
-    // b) Ads Budget (Doughnut)
-    tryCreateChart('adsPieChart', {
+    // b) Platform Split (FB, Insta, AudNet)
+    const platformChart = tryCreateChart('platformChart', {
         type: 'doughnut',
         data: {
-            labels: ['Google', 'Meta', 'TikTok'],
+            labels: ['Instagram', 'Facebook', 'Audience Network', 'Messenger'],
             datasets: [{
-                data: [35, 40, 25],
-                backgroundColor: [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30],
+                data: [0, 0, 0, 0], // Empty State (Shows gray ring initially)
+                backgroundColor: [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30, GLASS_COLORS.white10],
                 borderWidth: 0,
                 cutout: '80%'
             }]
@@ -272,100 +176,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // c) PR ROI (Line)
-    tryCreateChart('prRoiChart', {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [
-                {
-                    label: 'EMV',
-                    data: [25, 35, 30, 50, 45, 65],
-                    borderColor: GLASS_COLORS.white,
-                    backgroundColor: GLASS_COLORS.white10,
-                    borderWidth: 2,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: GLASS_COLORS.white,
-                    pointRadius: 0, // Minimalist, points show on hover
-                    pointHoverRadius: 6
-                },
-                {
-                    label: 'PR Cost',
-                    data: [10, 15, 12, 20, 18, 25],
-                    borderColor: GLASS_COLORS.white30,
-                    borderWidth: 2,
-                    fill: false,
-                    tension: 0.4,
-                    pointRadius: 0
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: glassScales
-        }
-    });
-
-    // d) Sentiment (Doughnut)
-    tryCreateChart('sentimentChart', {
-        type: 'doughnut',
-        data: {
-            labels: ['Positive', 'Neutral', 'Negative'],
-            datasets: [{
-                data: [85, 10, 5],
-                backgroundColor: [GLASS_COLORS.white, GLASS_COLORS.white30, GLASS_COLORS.accentRed],
-                borderWidth: 0,
-                cutout: '85%' // Very thin ring like reference 3
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
-        }
-    });
-
-    // e) Trend Radar
-    tryCreateChart('trendChart', {
-        type: 'radar',
-        data: {
-            labels: ['Wellness', 'Beauty', 'Fitness', 'Mental Health', 'Nutrition'],
-            datasets: [{
-                label: 'Trend Score',
-                data: [85, 65, 90, 75, 60],
-                backgroundColor: GLASS_COLORS.white10,
-                borderColor: GLASS_COLORS.white,
-                pointBackgroundColor: GLASS_COLORS.white,
-                pointBorderColor: GLASS_COLORS.white,
-                borderWidth: 1,
-                pointRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                r: {
-                    grid: { color: GLASS_COLORS.white10 },
-                    angleLines: { color: GLASS_COLORS.white10 },
-                    ticks: { display: false },
-                    pointLabels: { color: GLASS_COLORS.white70 }
-                }
-            },
-            plugins: { legend: { display: false } }
-        }
-    });
-
-    // f) Outlet Ranking (Horizontal Bar)
-    tryCreateChart('outletChart', {
+    // c) Placement Performance (Horizontal Bar)
+    const placementChart = tryCreateChart('placementChart', {
         type: 'bar',
         data: {
-            labels: ['Jabodetabek', 'Jawa Barat', 'Jawa Timur', 'Bali', 'Jawa Tengah'],
+            labels: ['Instagram Stories', 'Facebook Feed', 'Instagram Reels', 'Instagram Feed', 'FB Video Feeds'],
             datasets: [{
-                label: 'Revenue',
-                data: [1200, 850, 750, 950, 600],
+                label: 'ROAS',
+                data: [0, 0, 0, 0, 0], // Empty state
                 backgroundColor: GLASS_COLORS.white70,
                 borderRadius: 20,
                 barThickness: 16
@@ -376,26 +194,24 @@ document.addEventListener('DOMContentLoaded', () => {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-                x: {
-                    grid: { color: GLASS_COLORS.white10 },
-                    border: { display: false },
-                    beginAtZero: true
-                },
-                y: {
-                    grid: { display: false },
-                    border: { display: false }
-                }
+                x: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true },
+                y: { grid: { display: false }, border: { display: false } }
             },
             plugins: { legend: { display: false } }
         }
     });
 
     // =========================================================================
-    // 6. AI DATA PROCESSOR (Gemini API Integration)
+    // 4. AI DATA PROCESSOR (Gemini API & Google Sheets Auto-Sync)
     // =========================================================================
     const apiKeyInput = document.getElementById('gemini-api-key');
     const saveKeyBtn = document.getElementById('save-api-key');
     const keyStatus = document.getElementById('api-key-status');
+    
+    const syncUrlInput = document.getElementById('gsheet-sync-url');
+    const saveSyncUrlBtn = document.getElementById('save-sync-url');
+    const syncUrlStatus = document.getElementById('sync-url-status');
+
     const uploadZone = document.getElementById('upload-zone');
     const fileInput = document.getElementById('file-input');
     const chatInterface = document.getElementById('ai-chat-interface');
@@ -403,20 +219,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatInput = document.getElementById('chat-input');
     const sendChatBtn = document.getElementById('send-chat');
     const datasetStats = document.getElementById('dataset-stats');
+    const triggerSyncBtn = document.getElementById('trigger-sync-btn');
 
     let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+    let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || '';
+    let currentParsedData = null; // Holds the full parsed array
     let currentDataProfile = null;
     let chatHistory = [];
 
-    // Load saved key on init
+    // Load saved configurations
     if (geminiApiKey) {
         apiKeyInput.value = geminiApiKey;
         keyStatus.className = 'sheets-status connected';
         keyStatus.textContent = 'Key Saved';
-        keyStatus.style.color = '#a7f3d0';
+    }
+    if (gsheetSyncUrl) {
+        syncUrlInput.value = gsheetSyncUrl;
+        syncUrlStatus.className = 'sheets-status connected';
+        syncUrlStatus.textContent = 'Webhook Ready';
     }
 
-    // Save API Key
     if (saveKeyBtn) {
         saveKeyBtn.addEventListener('click', () => {
             const val = apiKeyInput.value.trim();
@@ -425,12 +247,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('gemini_api_key', val);
                 keyStatus.className = 'sheets-status connected';
                 keyStatus.textContent = 'Key Saved';
-                keyStatus.style.color = '#a7f3d0';
             }
         });
     }
 
-    // Upload Click to trigger file input
+    if (saveSyncUrlBtn) {
+        saveSyncUrlBtn.addEventListener('click', () => {
+            const val = syncUrlInput.value.trim();
+            if (val) {
+                gsheetSyncUrl = val;
+                localStorage.setItem('gsheet_sync_url', val);
+                syncUrlStatus.className = 'sheets-status connected';
+                syncUrlStatus.textContent = 'Webhook Ready';
+            }
+        });
+    }
+
+    // Upload Handlers
     if (uploadZone) {
         uploadZone.addEventListener('click', () => fileInput.click());
         uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'rgba(255,255,255,0.8)'; });
@@ -438,61 +271,91 @@ document.addEventListener('DOMContentLoaded', () => {
         uploadZone.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadZone.style.borderColor = 'rgba(255,255,255,0.3)';
-            if (e.dataTransfer.files.length) {
-                processFile(e.dataTransfer.files[0]);
-            }
+            if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
         });
         
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) {
-                processFile(e.target.files[0]);
-            }
+            if (e.target.files.length) processFile(e.target.files[0]);
         });
     }
 
-    function processFile(file) {
-        if (!file.name.endsWith('.csv')) {
-            alert('Please upload a CSV file.');
-            return;
-        }
+    function handleParsedData(data, columns, filename) {
+        currentParsedData = data;
         
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                const data = results.data;
-                const columns = results.meta.fields;
-                
-                // Pre-analysis
-                let blankCount = 0;
-                data.forEach(row => {
-                    columns.forEach(col => { if (!row[col]) blankCount++; });
-                });
-
-                currentDataProfile = {
-                    filename: file.name,
-                    totalRows: data.length,
-                    columns: columns,
-                    blankCellsFound: blankCount,
-                    sampleData: data.slice(0, 5) // Send only 5 rows to Gemini to save tokens
-                };
-
-                // Update UI
-                datasetStats.textContent = `${data.length} Rows Loaded`;
-                uploadZone.style.display = 'none';
-                chatInterface.style.display = 'flex';
-
-                // Initial AI Message
-                chatHistory = []; // Reset history
-                addChatMessage('AI', `I've successfully loaded **${file.name}**. It contains ${data.length} rows and ${columns.length} columns. I detected ${blankCount} blank cells. What would you like me to do with this data?`);
-            }
+        // Pre-analysis
+        let blankCount = 0;
+        data.forEach(row => {
+            columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
         });
+
+        currentDataProfile = {
+            filename: filename,
+            totalRows: data.length,
+            columns: columns,
+            blankCellsFound: blankCount,
+            sampleData: data.slice(0, 5)
+        };
+
+        // Update UI
+        datasetStats.textContent = `${data.length} Rows Loaded`;
+        uploadZone.style.display = 'none';
+        chatInterface.style.display = 'flex';
+
+        // Initial AI Message
+        chatHistory = [];
+        addChatMessage('AI', `I've successfully loaded **${filename}**. It contains ${data.length} rows and ${columns.length} columns. I detected ${blankCount} blank cells. How would you like to process this Meta Ads data before syncing to the database?`);
+        
+        // Populate UI with mock data to simulate "previewing" the data
+        simulateChartUpdates(data.length);
+    }
+
+    function processFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        
+        if (ext === 'csv') {
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    handleParsedData(results.data, results.meta.fields, file.name);
+                }
+            });
+        } else if (ext === 'xls' || ext === 'xlsx') {
+            // Using SheetJS
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
+                
+                if (json.length > 0) {
+                    const columns = Object.keys(json[0]);
+                    handleParsedData(json, columns, file.name);
+                } else {
+                    alert('The Excel file appears to be empty.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            alert('Please upload a CSV or Excel (.xls, .xlsx) file.');
+        }
+    }
+
+    function simulateChartUpdates(rowCount) {
+        // Just visual flair to show the dashboard reacting to the upload
+        document.getElementById('kpi-spend').textContent = `Rp ${(rowCount * 0.5).toFixed(1)}M`;
+        document.getElementById('kpi-impressions').textContent = `${(rowCount * 12.5).toFixed(0)}K`;
+        document.getElementById('kpi-ctr').textContent = `2.4%`;
+        document.getElementById('kpi-roas').textContent = `3.1x`;
+        
+        document.querySelectorAll('.trend').forEach(el => el.textContent = 'Previewing Local Data');
     }
 
     function addChatMessage(sender, text) {
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${sender === 'AI' ? 'ai' : 'user'}`;
-        // Simple markdown parsing for bold text
         const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         bubble.innerHTML = formattedText;
         chatLog.appendChild(bubble);
@@ -508,16 +371,15 @@ document.addEventListener('DOMContentLoaded', () => {
         addChatMessage('User', userText);
         chatInput.value = '';
         
-        // Append user msg to history
         chatHistory.push({ role: 'user', parts: [{ text: userText }] });
 
-        // Build system context
-        const systemInstruction = `You are a strict Data Quality Analyst. You are looking at a dataset named ${currentDataProfile.filename}.
+        const systemInstruction = `You are a strict Data Quality Analyst specifically for Meta Ads data. 
+        Dataset: ${currentDataProfile.filename}.
         Total Rows: ${currentDataProfile.totalRows}. 
-        Blank cells detected locally: ${currentDataProfile.blankCellsFound}.
+        Blank cells: ${currentDataProfile.blankCellsFound}.
         Columns: ${currentDataProfile.columns.join(', ')}.
-        Here is a sample of the first 5 rows to understand the format: ${JSON.stringify(currentDataProfile.sampleData)}.
-        Keep your answers concise, conversational, and helpful. If the user asks about duplicates or missing data, tell them you can write a script or give them instructions on how to clean it.`;
+        Sample Data: ${JSON.stringify(currentDataProfile.sampleData)}.
+        Keep answers concise. If the user says "Sync it", tell them to click the Sync button at the top.`;
 
         const requestBody = {
             system_instruction: { parts: { text: systemInstruction } },
@@ -536,13 +398,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             const aiText = data.candidates[0].content.parts[0].text;
             
-            // Append AI msg to history
             chatHistory.push({ role: 'model', parts: [{ text: aiText }] });
             addChatMessage('AI', aiText);
 
         } catch (error) {
             console.error(error);
-            addChatMessage('AI', 'Sorry, I encountered an error communicating with the Gemini API. Please check your API key.');
+            addChatMessage('AI', 'Sorry, I encountered an error communicating with Gemini. Please check your API key.');
         }
     }
 
@@ -559,4 +420,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Google Apps Script Auto-Sync
+    if (triggerSyncBtn) {
+        triggerSyncBtn.addEventListener('click', async () => {
+            if (!gsheetSyncUrl) {
+                addChatMessage('AI', 'You need to set your Google Apps Script Webhook URL in the configuration first before syncing.');
+                return;
+            }
+            if (!currentParsedData) return;
+
+            triggerSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+            addChatMessage('AI', 'Initiating sync to Google Sheets...');
+
+            try {
+                // Send the parsed JSON data to the Webhook
+                const response = await fetch(gsheetSyncUrl, {
+                    method: 'POST',
+                    mode: 'no-cors', // Apps Script requires no-cors from frontend
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(currentParsedData)
+                });
+                
+                // Because of no-cors, response.ok is always false/opaque, but it succeeds if it didn't throw network error
+                setTimeout(() => {
+                    triggerSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced';
+                    triggerSyncBtn.style.background = 'rgba(167,243,208,0.9)';
+                    addChatMessage('AI', 'Success! The data has been written to your Master Google Spreadsheet.');
+                }, 1500);
+
+            } catch (error) {
+                console.error(error);
+                triggerSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
+                triggerSyncBtn.style.background = 'rgba(254,202,202,0.9)';
+                addChatMessage('AI', 'Sync failed. Please verify your Webhook URL is correct and deployed as a Web App.');
+            }
+        });
+    }
 });

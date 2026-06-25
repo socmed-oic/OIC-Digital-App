@@ -6,19 +6,19 @@
     --bg-color-2: #8c6239;
     --bg-color-3: #c29b74;
     
-    /* Glassmorphism Variables */
-    --glass-bg: rgba(255, 255, 255, 0.15);
-    --glass-bg-hover: rgba(255, 255, 255, 0.25);
+    /* Glassmorphism Variables - Optimized for Performance */
+    --glass-bg: rgba(255, 255, 255, 0.12);
+    --glass-bg-hover: rgba(255, 255, 255, 0.20);
     --glass-border: rgba(255, 255, 255, 0.25);
-    --glass-blur: blur(24px);
-    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.15);
+    --glass-blur: blur(12px); /* Reduced from 24px/40px for lag-free scroll */
+    --glass-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.1); /* Simplified shadow */
     
     /* Solid Colors for contrast */
     --text-main: #ffffff;
     --text-secondary: rgba(255, 255, 255, 0.7);
     --text-dark: #1f2937;
     
-    /* Accent Colors (Pastels for glass) */
+    /* Accent Colors */
     --accent-red: rgba(239, 68, 68, 0.8);
     --accent-gold: rgba(245, 158, 11, 0.8);
     --accent-green: rgba(34, 197, 94, 0.8);
@@ -30,7 +30,7 @@
     --radius-md: 20px;
     --radius-sm: 12px;
     
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ==========================================================================
@@ -68,7 +68,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .view-section.active {
     display: flex;
-    animation: fadeIn 0.6s ease-out forwards;
+    animation: fadeIn 0.4s ease-out forwards;
 }
 
 .glass-container-center {
@@ -82,12 +82,12 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 @keyframes slideUp {
-    from { opacity: 0; transform: translateY(30px); }
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
 /* ==========================================================================
-   GLASSMORPHISM UTILITIES
+   GLASSMORPHISM UTILITIES (Hardware Accelerated)
    ========================================================================== */
 .glass-card, .glass-panel {
     background: var(--glass-bg);
@@ -96,6 +96,9 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--glass-shadow);
+    /* Hardware acceleration to prevent lag */
+    will-change: transform, backdrop-filter;
+    transform: translateZ(0);
 }
 
 .glass-pill {
@@ -105,6 +108,8 @@ h1, h2, h3, h4, h5, h6 {
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-pill);
     box-shadow: var(--glass-shadow);
+    will-change: transform, backdrop-filter;
+    transform: translateZ(0);
 }
 
 .glass-btn {
@@ -128,12 +133,13 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .glass-btn.primary {
-    background: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.95);
     color: var(--bg-color-1);
     border: none;
 }
 .glass-btn.primary:hover {
     background: #ffffff;
+    box-shadow: 0 4px 12px rgba(255,255,255,0.2);
 }
 
 /* ==========================================================================
@@ -150,7 +156,7 @@ h1, h2, h3, h4, h5, h6 {
     height: 60px;
     object-fit: contain;
     margin-bottom: 24px;
-    filter: brightness(0) invert(1); /* Makes the black logo white */
+    filter: brightness(0) invert(1);
 }
 
 .login-header h2 {
@@ -246,10 +252,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ==========================================================================
-   HUB VIEW
+   HUB VIEW (Redesigned 2x2)
    ========================================================================== */
 .hub-wrapper {
-    max-width: 1000px;
+    max-width: 1100px;
     width: 100%;
     padding: 40px;
 }
@@ -271,51 +277,67 @@ h1, h2, h3, h4, h5, h6 {
 
 .hub-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
 }
 
 .hub-card {
-    padding: 40px 24px;
-    text-align: center;
+    padding: 40px 32px;
+    text-align: left;
     cursor: pointer;
-    border-radius: 40px; /* Extremely rounded like Apple Vision Pro */
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background: rgba(255,255,255,0.05); /* Very subtle by default */
+    border-radius: 32px;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 .hub-card:hover {
-    background: rgba(255,255,255,0.2); /* Brightens on hover */
-    transform: translateY(-10px) scale(1.02);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    background: rgba(255,255,255,0.25);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.2);
 }
 
 .hub-icon-wrapper {
-    width: 72px;
-    height: 72px;
-    border-radius: 24px;
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2rem;
-    margin: 0 auto 24px;
-    box-shadow: inset 0 2px 4px rgba(255,255,255,0.3);
+    font-size: 1.8rem;
+    margin-bottom: 24px;
+    /* Pure white translucent icon style */
+    background: rgba(255,255,255,0.15);
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.3);
 }
 
 .hub-card h3 {
-    font-size: 1.1rem;
+    font-size: 1.5rem;
     margin-bottom: 12px;
     font-weight: 600;
 }
 
 .hub-card p {
-    font-size: 0.85rem;
+    font-size: 0.95rem;
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: 1.6;
+    flex: 1;
+}
+
+.hub-metric {
+    margin-top: 24px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: 16px;
 }
 
 /* ==========================================================================
-   DASHBOARD LAYOUT
+   DASHBOARD LAYOUT (Standalone Architecture)
    ========================================================================== */
 #dashboard-view {
     padding: 24px;
@@ -323,37 +345,21 @@ h1, h2, h3, h4, h5, h6 {
     box-sizing: border-box;
 }
 
-/* Floating Sidebar */
+/* Static Sidebar */
 .floating-sidebar {
-    width: 100px; /* Slimmer, icon-focused */
+    width: 240px; /* Fixed width, no hover expansion */
     display: flex;
     flex-direction: column;
-    align-items: center;
-    padding: 32px 16px;
-    border-radius: 40px;
-    transition: width 0.3s ease;
-    overflow: hidden;
-    position: relative;
+    padding: 32px 24px;
+    border-radius: 32px;
     z-index: 10;
 }
 
-/* Expand sidebar on hover */
-.floating-sidebar:hover {
-    width: 260px;
-    align-items: flex-start;
-    padding: 32px 24px;
-}
-
 .sidebar-logo img {
-    height: 40px;
-    filter: brightness(0) invert(1);
-    margin-bottom: 40px;
-    transition: var(--transition);
-}
-
-.floating-sidebar:hover .sidebar-logo img {
     height: 45px;
-    margin-left: 12px;
+    filter: brightness(0) invert(1);
+    margin-bottom: 48px;
+    display: block;
 }
 
 .nav-links {
@@ -371,32 +377,15 @@ h1, h2, h3, h4, h5, h6 {
     gap: 16px;
     padding: 16px;
     border-radius: 20px;
-    cursor: pointer;
     color: var(--text-secondary);
-    transition: var(--transition);
     white-space: nowrap;
+    font-weight: 500;
 }
 
 .nav-links li i {
     font-size: 1.2rem;
     width: 24px;
     text-align: center;
-}
-
-.nav-links li span {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s;
-    font-weight: 500;
-}
-
-.floating-sidebar:hover .nav-links li span {
-    opacity: 1;
-}
-
-.nav-links li:hover {
-    background: rgba(255,255,255,0.1);
-    color: white;
 }
 
 .nav-links li.active {
@@ -414,12 +403,6 @@ h1, h2, h3, h4, h5, h6 {
     padding: 16px;
     border-radius: 20px;
 }
-.sidebar-bottom .glass-btn span {
-    display: none;
-}
-.floating-sidebar:hover .sidebar-bottom .glass-btn span {
-    display: inline;
-}
 
 /* Main Content Area */
 .main-content {
@@ -427,7 +410,7 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     flex-direction: column;
     gap: 24px;
-    min-width: 0; /* Prevents overflow */
+    min-width: 0; 
 }
 
 /* Floating Topbar */
@@ -436,7 +419,7 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: space-between;
     align-items: center;
     padding: 16px 32px;
-    border-radius: 40px;
+    border-radius: 32px;
 }
 
 #current-module-title {
@@ -451,56 +434,25 @@ h1, h2, h3, h4, h5, h6 {
     gap: 16px;
 }
 
-.search-pill {
+/* Functional Date Picker */
+.date-picker-container {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 20px;
+    padding: 8px 16px;
 }
-
-.search-pill input {
+.glass-date-input {
     background: transparent;
     border: none;
-    outline: none;
     color: white;
     font-family: inherit;
-    width: 180px;
-}
-.search-pill input::placeholder {
-    color: rgba(255,255,255,0.5);
-}
-
-.glass-icon-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition);
-    position: relative;
-}
-.glass-icon-btn:hover {
-    background: var(--glass-bg-hover);
-}
-.notification-dot {
-    position: absolute;
-    top: 10px;
-    right: 12px;
-    width: 8px;
-    height: 8px;
-    background: #ff4757;
-    border-radius: 50%;
-}
-
-.date-pill {
-    padding: 10px 20px;
     font-weight: 500;
-    font-size: 0.9rem;
-    letter-spacing: 0.5px;
+    outline: none;
+}
+.glass-date-input::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.7;
+    cursor: pointer;
 }
 
 /* ==========================================================================
@@ -510,15 +462,15 @@ h1, h2, h3, h4, h5, h6 {
     flex: 1;
     overflow-y: auto;
     border-radius: 32px;
-    /* Custom Scrollbar for inner area */
 }
+/* Optimize scrollbar for performance (invisible is fastest) */
 .content-scroll-area::-webkit-scrollbar {
-    width: 0px; /* Hide scrollbar for extreme cleanliness, or make it thin glass */
+    width: 0px; 
 }
 
 .module-section {
     display: none;
-    animation: slideUp 0.5s ease-out;
+    animation: slideUp 0.4s ease-out;
 }
 .module-section.active {
     display: block;
@@ -570,18 +522,13 @@ h1, h2, h3, h4, h5, h6 {
 .kpi-card .value {
     font-size: 2.2rem;
     font-family: 'Outfit';
-    font-weight: 300; /* Thin, elegant typography */
+    font-weight: 300; 
     margin-bottom: 8px;
 }
 .trend {
     font-size: 0.85rem;
     font-weight: 500;
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
-.trend.up { color: #a7f3d0; }
-.trend.down { color: #fecaca; }
 
 /* Card Components */
 .glass-card {
@@ -618,7 +565,6 @@ h1, h2, h3, h4, h5, h6 {
 .glass-tab.active {
     background: rgba(255,255,255,0.2);
     color: white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 .glass-tag {
     background: rgba(255,255,255,0.15);
@@ -634,201 +580,39 @@ h1, h2, h3, h4, h5, h6 {
     position: relative;
     width: 100%;
 }
-.sentiment-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    pointer-events: none;
-}
-.sentiment-center .score {
-    font-size: 3rem;
-    font-family: 'Outfit';
-    font-weight: 300;
-    line-height: 1;
-}
-.sentiment-center .label {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    margin-top: 4px;
-}
 
-/* Custom Legend */
-.custom-legend {
-    display: flex;
-    justify-content: center;
+/* Configuration Grid */
+.config-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 16px;
 }
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-}
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-}
 
-/* Glass Calendar (Reference 2 style) */
-.glass-calendar {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-.cal-week {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-.cal-week .day {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    color: var(--text-secondary);
-    width: 40px;
-    padding: 8px 0;
-    border-radius: 20px;
-    position: relative;
-}
-.cal-week .day span:first-child { font-size: 0.8rem; text-transform: uppercase; }
-.cal-week .day span:last-child { font-family: 'Outfit'; font-weight: 600; font-size: 1.1rem; }
-.cal-week .day.active {
-    background: rgba(255,255,255,0.2);
-    color: white;
-}
-.cal-week .day .dot {
-    position: absolute;
-    bottom: 4px;
-    width: 4px;
-    height: 4px;
-    background: white;
-    border-radius: 50%;
-}
-.cal-events {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.glass-event {
-    background: rgba(255,255,255,0.1);
-    padding: 16px;
-    border-radius: 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    cursor: pointer;
-    transition: var(--transition);
-}
-.glass-event:hover {
-    background: rgba(255,255,255,0.2);
-}
-.event-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-size: cover;
-}
-.event-details {
-    flex: 1;
-}
-.event-details h4 {
-    font-weight: 500;
-    margin-bottom: 4px;
-}
-.event-details p {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    letter-spacing: 1px;
-}
-.glass-event i {
-    color: rgba(255,255,255,0.5);
-}
-
-/* Glass List (Reference 3 style) */
-.glass-list {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-.glass-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 20px;
-    transition: var(--transition);
-}
-.glass-list li:hover {
-    background: rgba(255,255,255,0.15);
-}
-.list-left {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-weight: 500;
-}
-.rank-badge {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Outfit';
-    font-weight: 600;
-    background: rgba(255,255,255,0.1);
-}
-.rank-badge.gold { background: linear-gradient(135deg, #fef08a, #eab308); color: #713f12; }
-.rank-badge.silver { background: linear-gradient(135deg, #f1f5f9, #94a3b8); color: #1e293b; }
-.rank-badge.bronze { background: linear-gradient(135deg, #fed7aa, #f97316); color: #7c2d12; }
-.list-right {
-    font-family: 'Outfit';
-    font-weight: 300;
-    font-size: 1.1rem;
-}
-
-/* Sheets Connector */
 .sheets-connector {
     display: flex;
-    gap: 16px;
+    gap: 12px;
     align-items: center;
-    padding: 16px 24px;
-    margin-bottom: 24px;
-    border-radius: 40px;
+    background: rgba(0,0,0,0.1);
+    padding: 8px;
+    border-radius: 32px;
 }
 .sheets-connector input {
     flex: 1;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
+    background: transparent;
+    border: none;
     color: white;
-    padding: 12px 20px;
-    border-radius: 30px;
+    padding: 8px 16px;
     font-family: inherit;
     outline: none;
 }
 .sheets-connector input::placeholder {
-    color: rgba(255,255,255,0.5);
-}
-.sheets-connector input:focus {
-    background: rgba(255,255,255,0.15);
-    border-color: rgba(255,255,255,0.4);
+    color: rgba(255,255,255,0.4);
 }
 .sheets-status {
     padding: 8px 16px;
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 500;
-    background: rgba(255,255,255,0.1);
 }
 .sheets-status.connected { color: #a7f3d0; background: rgba(167,243,208,0.1); }
 .sheets-status.disconnected { color: #fecaca; background: rgba(254,202,202,0.1); }
@@ -837,7 +621,7 @@ h1, h2, h3, h4, h5, h6 {
    AI PROCESSOR MODULE
    ========================================================================== */
 #upload-zone:hover {
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.15);
     border-color: rgba(255,255,255,0.6) !important;
 }
 
@@ -859,27 +643,27 @@ h1, h2, h3, h4, h5, h6 {
 
 .chat-bubble.user {
     align-self: flex-end;
-    background: rgba(167, 139, 250, 0.2); /* Purple tint */
+    background: rgba(167, 139, 250, 0.2); 
     border: 1px solid rgba(167, 139, 250, 0.4);
     border-bottom-right-radius: 4px;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-    .hub-grid, .spatial-grid { grid-template-columns: repeat(2, 1fr); }
+    .spatial-grid { grid-template-columns: repeat(2, 1fr); }
     .col-span-3, .col-span-4 { grid-column: span 2; }
+    .config-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 768px) {
     #dashboard-view { flex-direction: column; padding: 12px; }
+    .hub-grid { grid-template-columns: 1fr; }
     .floating-sidebar { width: 100%; flex-direction: row; height: 80px; padding: 12px; justify-content: space-between; overflow-x: auto; }
-    .floating-sidebar:hover { width: 100%; padding: 12px; }
-    .nav-links { flex-direction: row; }
     .sidebar-logo { display: none; }
     .sidebar-bottom { width: auto; }
-    .hub-grid, .spatial-grid { grid-template-columns: 1fr; }
+    .spatial-grid { grid-template-columns: 1fr; }
     .col-span-2 { grid-column: span 1; }
     .floating-topbar { flex-direction: column; gap: 16px; border-radius: 24px; padding: 16px; }
-    .sheets-connector { flex-direction: column; border-radius: 24px; }
-    .sheets-connector input { width: 100%; }
+    .sheets-connector { flex-direction: column; border-radius: 24px; padding: 16px; }
+    .sheets-connector input { width: 100%; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 12px; margin-bottom: 8px;}
 }

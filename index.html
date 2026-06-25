@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- PapaParse for CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS for XLS/XLSX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -57,39 +59,43 @@
             
             <div class="hub-grid">
                 <!-- Ads & Optimization -->
-                <div class="glass-card hub-card" data-module="ads-module">
-                    <div class="hub-icon-wrapper" style="background: rgba(239, 68, 68, 0.15); color: #ff6b6b;">
+                <div class="glass-card hub-card" data-module="ads-module" data-icon="fa-rocket" data-title="Meta Ads & AI">
+                    <div class="hub-icon-wrapper">
                         <i class="fa-solid fa-rocket"></i>
                     </div>
-                    <h3>Ads & Optimization</h3>
-                    <p>Campaign performance, ROAS tracking, and AI-powered budget insights</p>
+                    <h3>Meta Ads & AI</h3>
+                    <p>Process, clean, and analyze Meta campaigns using the AI data engine.</p>
+                    <div class="hub-metric">Status: <span style="color: #a7f3d0">Data Engine Ready</span></div>
                 </div>
 
                 <!-- PR & Exposure -->
-                <div class="glass-card hub-card" data-module="pr-module">
-                    <div class="hub-icon-wrapper" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+                <div class="glass-card hub-card" data-module="pr-module" data-icon="fa-newspaper" data-title="PR & Exposure">
+                    <div class="hub-icon-wrapper">
                         <i class="fa-regular fa-newspaper"></i>
                     </div>
                     <h3>PR & Exposure</h3>
-                    <p>Earned media value, sentiment analysis, and influencer tracking</p>
+                    <p>Earned media value, sentiment analysis, and influencer tracking.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">0 Active Trackers</span></div>
                 </div>
 
                 <!-- Content Planning -->
-                <div class="glass-card hub-card" data-module="content-module">
-                    <div class="hub-icon-wrapper" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">
+                <div class="glass-card hub-card" data-module="content-module" data-icon="fa-pen-ruler" data-title="Content Planning">
+                    <div class="hub-icon-wrapper">
                         <i class="fa-solid fa-pen-ruler"></i>
                     </div>
                     <h3>Content Planning</h3>
-                    <p>Trend radar, strategy mix, and content calendar management</p>
+                    <p>Trend radar, strategy mix, and content calendar management.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">0 Scheduled Posts</span></div>
                 </div>
 
                 <!-- Multi-Outlet Report -->
-                <div class="glass-card hub-card" data-module="outlet-module">
-                    <div class="hub-icon-wrapper" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                <div class="glass-card hub-card" data-module="outlet-module" data-icon="fa-store" data-title="Multi-Outlet Report">
+                    <div class="hub-icon-wrapper">
                         <i class="fa-solid fa-store"></i>
                     </div>
                     <h3>Multi-Outlet Report</h3>
-                    <p>Regional performance, outlet rankings, and anomaly detection</p>
+                    <p>Regional performance, outlet rankings, and anomaly detection.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">No Connected Outlets</span></div>
                 </div>
             </div>
         </div>
@@ -98,31 +104,20 @@
     <!-- DASHBOARD VIEW -->
     <div id="dashboard-view" class="view-section">
         
-        <!-- Floating Sidebar -->
+        <!-- Floating Sidebar (Standalone Mode) -->
         <aside class="floating-sidebar glass-panel">
             <div class="sidebar-logo">
                 <img src="img/logo.png" alt="OIC Logo">
             </div>
             <ul class="nav-links">
-                <li class="active" data-target="ads-module" title="Ads & Optimization">
-                    <i class="fa-solid fa-rocket"></i><span>Ads & Opt.</span>
-                </li>
-                <li data-target="pr-module" title="PR & Exposure">
-                    <i class="fa-regular fa-newspaper"></i><span>PR & Exposure</span>
-                </li>
-                <li data-target="content-module" title="Content Planning">
-                    <i class="fa-solid fa-pen-ruler"></i><span>Content Plan</span>
-                </li>
-                <li data-target="outlet-module" title="Multi-Outlet Report">
-                    <i class="fa-solid fa-store"></i><span>Outlets</span>
-                </li>
-                <li data-target="ai-module" title="AI Processor">
-                    <i class="fa-solid fa-brain" style="color: #a78bfa;"></i><span style="color: #a78bfa;">AI Processor</span>
+                <!-- Dynamically populated by JS based on selected Hub Card -->
+                <li class="active" id="sidebar-active-module">
+                    <i class="fa-solid fa-rocket"></i><span>Meta Ads</span>
                 </li>
             </ul>
             <div class="sidebar-bottom">
-                <button id="back-to-hub" class="glass-btn">
-                    <i class="fa-solid fa-arrow-left"></i><span>Exit</span>
+                <button id="back-to-hub" class="glass-btn primary">
+                    <i class="fa-solid fa-arrow-left"></i><span>Exit to Hub</span>
                 </button>
             </div>
         </aside>
@@ -133,283 +128,131 @@
             <!-- Floating Topbar -->
             <header class="floating-topbar glass-panel">
                 <div class="topbar-left">
-                    <h2 id="current-module-title">Ads & Optimization</h2>
+                    <h2 id="current-module-title">Meta Ads & Optimization</h2>
                 </div>
                 <div class="topbar-right">
-                    <div class="search-pill glass-pill">
-                        <i class="fa-solid fa-search"></i>
-                        <input type="text" placeholder="Search insights...">
-                    </div>
-                    <div class="glass-icon-btn">
-                        <i class="fa-regular fa-bell"></i>
-                        <div class="notification-dot"></div>
-                    </div>
-                    <div class="glass-pill date-pill" id="topbar-date">
-                        Mon, 24 Jun 2024
+                    <!-- Functional Date Range Calendar -->
+                    <div class="glass-pill date-picker-container">
+                        <i class="fa-regular fa-calendar" style="color: rgba(255,255,255,0.7);"></i>
+                        <input type="date" id="date-start" class="glass-date-input">
+                        <span style="color: rgba(255,255,255,0.5);">to</span>
+                        <input type="date" id="date-end" class="glass-date-input">
                     </div>
                 </div>
             </header>
 
             <div class="content-scroll-area">
                 
-                <!-- 1. ADS & OPTIMIZATION MODULE -->
+                <!-- 1. META ADS & OPTIMIZATION MODULE -->
                 <section id="ads-module" class="module-section active">
                     
-                    <div class="glass-panel sheets-connector">
-                        <i class="fa-solid fa-file-excel" style="color: #4ade80; font-size: 1.5rem;"></i>
-                        <input type="text" id="sheet-url-input" placeholder="Paste Google Sheets URL here...">
-                        <button id="connect-sheets" class="glass-btn primary">Connect Data</button>
-                        <div id="sheets-status" class="sheets-status disconnected">Disconnected</div>
-                    </div>
-
                     <div class="spatial-grid">
                         <!-- KPI Row -->
                         <div class="glass-card kpi-card col-span-1">
                             <div class="kpi-header">
-                                <span class="label">Total Spend</span>
+                                <span class="label">Meta Spend</span>
                                 <div class="glass-icon"><i class="fa-solid fa-wallet"></i></div>
                             </div>
-                            <div class="value">Rp 45.2M</div>
-                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +12%</div>
+                            <div class="value" id="kpi-spend">Rp 0</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
                         </div>
                         <div class="glass-card kpi-card col-span-1">
                             <div class="kpi-header">
                                 <span class="label">Impressions</span>
                                 <div class="glass-icon"><i class="fa-solid fa-eye"></i></div>
                             </div>
-                            <div class="value">12.8M</div>
-                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +8%</div>
+                            <div class="value" id="kpi-impressions">0</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
                         </div>
                         <div class="glass-card kpi-card col-span-1">
                             <div class="kpi-header">
-                                <span class="label">Avg. CPC</span>
+                                <span class="label">Avg. CTR</span>
                                 <div class="glass-icon"><i class="fa-solid fa-mouse-pointer"></i></div>
                             </div>
-                            <div class="value">Rp 1,250</div>
-                            <div class="trend down"><i class="fa-solid fa-arrow-trend-down"></i> -5%</div>
+                            <div class="value" id="kpi-ctr">0.0%</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
                         </div>
                         <div class="glass-card kpi-card col-span-1">
                             <div class="kpi-header">
                                 <span class="label">Avg. ROAS</span>
                                 <div class="glass-icon"><i class="fa-solid fa-bullseye"></i></div>
                             </div>
-                            <div class="value">4.2x</div>
-                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +1.1x</div>
+                            <div class="value" id="kpi-roas">0.0x</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
                         </div>
 
-                        <!-- Charts -->
+                        <!-- Meta Charts -->
                         <div class="glass-card col-span-3 row-span-2">
                             <div class="card-header">
-                                <h3>Cross-Platform Performance</h3>
+                                <h3>Demographics Performance</h3>
                                 <div class="glass-pill-group">
-                                    <button class="glass-tab active">Clicks</button>
-                                    <button class="glass-tab">Spend</button>
+                                    <button class="glass-tab active">Age & Gender</button>
                                 </div>
                             </div>
                             <div class="chart-wrapper" style="height: 300px;">
-                                <canvas id="adsChart"></canvas>
+                                <canvas id="demoChart"></canvas>
                             </div>
                         </div>
 
                         <div class="glass-card col-span-1 row-span-2">
                             <div class="card-header">
-                                <h3>Budget Allocation</h3>
+                                <h3>Platform Split</h3>
                             </div>
                             <div class="chart-wrapper" style="height: 250px;">
-                                <canvas id="adsPieChart"></canvas>
+                                <canvas id="platformChart"></canvas>
                             </div>
-                            <div class="custom-legend mt-4">
-                                <div class="legend-item"><span class="dot" style="background:#ffffff"></span> Google (35%)</div>
-                                <div class="legend-item"><span class="dot" style="background:rgba(255,255,255,0.6)"></span> Meta (40%)</div>
-                                <div class="legend-item"><span class="dot" style="background:rgba(255,255,255,0.3)"></span> TikTok (25%)</div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 2. PR & EXPOSURE MODULE -->
-                <section id="pr-module" class="module-section">
-                    <div class="spatial-grid">
-                        <div class="glass-card kpi-card col-span-2">
-                            <div class="kpi-header">
-                                <span class="label">Earned Media Value (EMV)</span>
-                                <div class="glass-icon"><i class="fa-solid fa-sack-dollar"></i></div>
-                            </div>
-                            <div class="value">Rp 125.8M</div>
-                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +24% vs last month</div>
-                        </div>
-                        <div class="glass-card kpi-card col-span-2">
-                            <div class="kpi-header">
-                                <span class="label">Share of Voice</span>
-                                <div class="glass-icon"><i class="fa-solid fa-bullhorn"></i></div>
-                            </div>
-                            <div class="value">42.5%</div>
-                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> Top in category</div>
                         </div>
 
-                        <div class="glass-card col-span-2 row-span-2">
+                        <div class="glass-card col-span-4 row-span-2">
                             <div class="card-header">
-                                <h3>PR Cost vs EMV Trend</h3>
+                                <h3>Placement Analysis</h3>
+                                <span class="glass-tag">Feed vs Stories vs Reels</span>
                             </div>
-                            <div class="chart-wrapper" style="height: 280px;">
-                                <canvas id="prRoiChart"></canvas>
-                            </div>
-                        </div>
-
-                        <div class="glass-card col-span-2 row-span-2">
-                            <div class="card-header">
-                                <h3>Brand Sentiment</h3>
-                            </div>
-                            <div class="chart-wrapper" style="height: 280px; position: relative;">
-                                <canvas id="sentimentChart"></canvas>
-                                <!-- The center text is handled via chart plugin or absolute positioning in CSS -->
-                                <div class="sentiment-center">
-                                    <div class="score">85</div>
-                                    <div class="label">Positive</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 3. CONTENT PLANNING MODULE -->
-                <section id="content-module" class="module-section">
-                    <div class="spatial-grid">
-                        <div class="glass-card col-span-2 row-span-2">
-                            <div class="card-header">
-                                <h3>Trend Radar</h3>
-                                <span class="glass-tag">AI Detected</span>
-                            </div>
-                            <div class="chart-wrapper" style="height: 320px;">
-                                <canvas id="trendChart"></canvas>
+                            <div class="chart-wrapper" style="height: 250px;">
+                                <canvas id="placementChart"></canvas>
                             </div>
                         </div>
 
-                        <div class="glass-card col-span-2 row-span-2">
-                            <div class="card-header">
-                                <h3>Content Calendar</h3>
-                            </div>
-                            <div class="glass-calendar">
-                                <!-- Mimicking the glass calendar reference -->
-                                <div class="cal-week">
-                                    <div class="day"><span>M</span><span>2</span></div>
-                                    <div class="day"><span>T</span><span>3</span></div>
-                                    <div class="day"><span>W</span><span>4</span></div>
-                                    <div class="day active"><span>T</span><span>5</span><div class="dot"></div></div>
-                                    <div class="day"><span>F</span><span>6</span></div>
-                                    <div class="day"><span>S</span><span>7</span></div>
-                                    <div class="day"><span>S</span><span>8</span></div>
-                                </div>
-                                <div class="cal-events">
-                                    <div class="glass-event">
-                                        <div class="event-icon" style="background-image: url('https://i.pravatar.cc/100?img=1')"></div>
-                                        <div class="event-details">
-                                            <h4>TikTok Trend Challenge</h4>
-                                            <p>3 PM • MARKETING TEAM</p>
-                                        </div>
-                                        <i class="fa-solid fa-chevron-right"></i>
-                                    </div>
-                                    <div class="glass-event">
-                                        <div class="event-icon" style="background-image: url('https://i.pravatar.cc/100?img=2')"></div>
-                                        <div class="event-details">
-                                            <h4>Instagram Live Collab</h4>
-                                            <p>5 PM • INFLUENCER RELATIONS</p>
-                                        </div>
-                                        <i class="fa-solid fa-chevron-right"></i>
-                                    </div>
-                                </div>
-                            </div>
+                        <!-- AI DATA PROCESSOR (Integrated into Ads Module) -->
+                        <div class="col-span-4" style="margin-top: 40px; margin-bottom: 16px;">
+                            <h2 style="font-size: 1.5rem; letter-spacing: 0.5px;"><i class="fa-solid fa-brain" style="color: #a78bfa; margin-right: 12px;"></i> AI Data Processor Engine</h2>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 0.95rem; margin-top: 8px;">Upload Meta Ads CSV/XLS exports to clean, analyze, and sync to your Master Spreadsheet.</p>
                         </div>
-                    </div>
-                </section>
-
-                <!-- 4. MULTI-OUTLET MODULE -->
-                <section id="outlet-module" class="module-section">
-                    <div class="spatial-grid">
-                        <div class="glass-card col-span-2 row-span-2">
-                            <div class="card-header">
-                                <h3>Top Performing Regions</h3>
-                            </div>
-                            <div class="chart-wrapper" style="height: 300px;">
-                                <canvas id="outletChart"></canvas>
-                            </div>
-                        </div>
-                        
-                        <div class="glass-card col-span-2 row-span-2">
-                            <div class="card-header">
-                                <h3>Outlet Ranking (Revenue)</h3>
-                            </div>
-                            <ul class="glass-list">
-                                <li>
-                                    <div class="list-left">
-                                        <div class="rank-badge gold">1</div>
-                                        <span>Jakarta Selatan</span>
-                                    </div>
-                                    <div class="list-right">Rp 450M</div>
-                                </li>
-                                <li>
-                                    <div class="list-left">
-                                        <div class="rank-badge silver">2</div>
-                                        <span>Bandung City</span>
-                                    </div>
-                                    <div class="list-right">Rp 380M</div>
-                                </li>
-                                <li>
-                                    <div class="list-left">
-                                        <div class="rank-badge bronze">3</div>
-                                        <span>Surabaya Pusat</span>
-                                    </div>
-                                    <div class="list-right">Rp 310M</div>
-                                </li>
-                                <li>
-                                    <div class="list-left">
-                                        <div class="rank-badge">4</div>
-                                        <span>Bali Region</span>
-                                    </div>
-                                    <div class="list-right">Rp 290M</div>
-                                </li>
-                                <li>
-                                    <div class="list-left">
-                                        <div class="rank-badge">5</div>
-                                        <span>Medan</span>
-                                    </div>
-                                    <div class="list-right">Rp 210M</div>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- 5. AI PROCESSOR MODULE -->
-                <section id="ai-module" class="module-section">
-                    <div class="spatial-grid">
                         
                         <!-- Configuration Card -->
                         <div class="glass-card col-span-4" id="ai-config-card">
                             <div class="card-header">
-                                <h3><i class="fa-solid fa-key" style="color: #a78bfa; margin-right: 8px;"></i> AI Configuration</h3>
+                                <h3><i class="fa-solid fa-key" style="color: #a78bfa; margin-right: 8px;"></i> Processor Configuration</h3>
                             </div>
-                            <div class="sheets-connector">
-                                <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key (Required)">
-                                <button id="save-api-key" class="glass-btn primary">Save Key</button>
-                                <div id="api-key-status" class="sheets-status disconnected">Key Missing</div>
+                            <div class="config-grid">
+                                <div class="sheets-connector">
+                                    <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key (Required for AI Analysis)">
+                                    <button id="save-api-key" class="glass-btn primary">Save Key</button>
+                                    <div id="api-key-status" class="sheets-status disconnected">Missing</div>
+                                </div>
+                                <div class="sheets-connector">
+                                    <input type="text" id="gsheet-sync-url" placeholder="Enter Google Apps Script Webhook URL (For Auto-Sync)">
+                                    <button id="save-sync-url" class="glass-btn primary">Save URL</button>
+                                    <div id="sync-url-status" class="sheets-status disconnected">Missing</div>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Upload Zone -->
                         <div class="glass-card col-span-4" id="upload-zone" style="text-align: center; padding: 60px 20px; border: 2px dashed rgba(255,255,255,0.3); transition: all 0.3s; cursor: pointer;">
-                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3rem; color: #a78bfa; margin-bottom: 16px;"></i>
-                            <h3>Upload Spreadsheet Data</h3>
-                            <p style="color: rgba(255,255,255,0.7); margin-top: 8px;">Drag & Drop a CSV file here or click to browse</p>
-                            <input type="file" id="file-input" accept=".csv" style="display: none;">
+                            <i class="fa-solid fa-file-csv" style="font-size: 3rem; color: #a78bfa; margin-bottom: 16px;"></i>
+                            <h3>Upload Meta Ads Export</h3>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 8px;">Drag & Drop a CSV or Excel (XLS/XLSX) file here</p>
+                            <input type="file" id="file-input" accept=".csv, .xls, .xlsx" style="display: none;">
                         </div>
 
-                        <!-- Chat Interface (Hidden until file is uploaded) -->
-                        <div class="glass-card col-span-4" id="ai-chat-interface" style="display: none; height: 500px; display: none; flex-direction: column;">
+                        <!-- Chat Interface -->
+                        <div class="glass-card col-span-4" id="ai-chat-interface" style="display: none; height: 500px; flex-direction: column;">
                             <div class="card-header" style="margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
-                                <h3><i class="fa-solid fa-robot" style="color: #a78bfa; margin-right: 8px;"></i> Data Processor Agent</h3>
+                                <h3><i class="fa-solid fa-robot" style="color: #a78bfa; margin-right: 8px;"></i> Data Agent</h3>
                                 <div class="glass-pill-group">
                                     <span class="glass-tag" id="dataset-stats">0 Rows Loaded</span>
+                                    <button id="trigger-sync-btn" class="glass-btn primary" style="padding: 4px 16px; margin-left: 12px; font-size: 0.85rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Sync to Sheet</button>
                                 </div>
                             </div>
                             
@@ -425,6 +268,39 @@
                             </div>
                         </div>
 
+                    </div>
+                </section>
+
+                <!-- 2. PR & EXPOSURE MODULE (Placeholder empty state) -->
+                <section id="pr-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card col-span-4" style="text-align: center; padding: 100px;">
+                            <i class="fa-regular fa-newspaper" style="font-size: 3rem; color: rgba(255,255,255,0.3); margin-bottom: 24px;"></i>
+                            <h2>PR & Exposure</h2>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 12px;">Data not added yet. Module under construction.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. CONTENT PLANNING MODULE (Placeholder empty state) -->
+                <section id="content-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card col-span-4" style="text-align: center; padding: 100px;">
+                            <i class="fa-solid fa-pen-ruler" style="font-size: 3rem; color: rgba(255,255,255,0.3); margin-bottom: 24px;"></i>
+                            <h2>Content Planning</h2>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 12px;">Data not added yet. Module under construction.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. MULTI-OUTLET MODULE (Placeholder empty state) -->
+                <section id="outlet-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card col-span-4" style="text-align: center; padding: 100px;">
+                            <i class="fa-solid fa-store" style="font-size: 3rem; color: rgba(255,255,255,0.3); margin-bottom: 24px;"></i>
+                            <h2>Multi-Outlet Report</h2>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 12px;">Data not added yet. Module under construction.</p>
+                        </div>
                     </div>
                 </section>
 
