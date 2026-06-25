@@ -674,7 +674,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        }
         
         // ==========================================
         // REPORTING MODULE LOGIC
