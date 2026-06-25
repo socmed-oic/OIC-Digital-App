@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIC Marketing & Analytics</title>
+    <!-- Fonts: Inter for UI, Marcellus for headings (Odilia Brand) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Marcellus&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>OIC Analytics</h2>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-target="ads-module">
+                    <i class="fa-solid fa-chart-line"></i> Ads & Optimization
+                </li>
+                <li data-target="pr-module">
+                    <i class="fa-solid fa-bullhorn"></i> PR & Exposure
+                </li>
+                <li data-target="content-module">
+                    <i class="fa-solid fa-calendar-alt"></i> Content Planning
+                </li>
+                <li data-target="outlet-module">
+                    <i class="fa-solid fa-store"></i> Multi-Outlet Report
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="topbar">
+                <div class="breadcrumb">
+                    <span id="current-module-title">Ads & Optimization</span>
+                </div>
+                <div class="user-profile">
+                    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                    <span>Marketing Exec</span>
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <!-- Modul 1: Ads -->
+                <section id="ads-module" class="module-section active">
+                    <div class="kpi-cards">
+                        <div class="card kpi">
+                            <i class="fa-solid fa-eye"></i>
+                            <div>
+                                <h3>Impressions</h3>
+                                <p>1.2M <span class="trend up">+15%</span></p>
+                            </div>
+                        </div>
+                        <div class="card kpi">
+                            <i class="fa-solid fa-mouse-pointer"></i>
+                            <div>
+                                <h3>Avg. CTR</h3>
+                                <p>4.5% <span class="trend up">+1.2%</span></p>
+                            </div>
+                        </div>
+                        <div class="card kpi">
+                            <i class="fa-solid fa-bullseye"></i>
+                            <div>
+                                <h3>CPA</h3>
+                                <p>Rp 45.000 <span class="trend down">-5%</span></p>
+                            </div>
+                        </div>
+                        <div class="card kpi">
+                            <i class="fa-solid fa-coins"></i>
+                            <div>
+                                <h3>ROAS</h3>
+                                <p>3.2x <span class="trend up">+0.5x</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="charts-row">
+                        <div class="card chart-card">
+                            <h3>Multi-Platform Performance</h3>
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="adsChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card ai-card">
+                            <h3><i class="fa-solid fa-robot"></i> AI Suggestions</h3>
+                            <ul>
+                                <li><strong>Budget Allocation:</strong> Shift 20% budget from Meta to TikTok based on lower CPA.</li>
+                                <li><strong>Targeting:</strong> 'Young Professionals' segment showing 3x conversion rate on Spa packages.</li>
+                                <li><strong>Status:</strong> <span class="badge success">Sangat Baik</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Modul 2: PR -->
+                <section id="pr-module" class="module-section">
+                    <div class="charts-row">
+                        <div class="card chart-card">
+                            <h3>PR Cost vs Earned Media Value (ROI)</h3>
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="prRoiChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card chart-card">
+                            <h3>Sentiment Analysis</h3>
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="sentimentChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card table-card">
+                        <h3>Exposure & Engagement Tracker</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Media / Influencer</th>
+                                    <th>Reach</th>
+                                    <th>Views</th>
+                                    <th>Link Clicks</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>BeautyVlogger A</td>
+                                    <td>500K</td>
+                                    <td>120K</td>
+                                    <td>5.4K</td>
+                                    <td><span class="badge success">High ROI</span></td>
+                                </tr>
+                                <tr>
+                                    <td>Wellness Magazine</td>
+                                    <td>1.2M</td>
+                                    <td>300K</td>
+                                    <td>2.1K</td>
+                                    <td><span class="badge warning">Moderate</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Modul 3: Content -->
+                <section id="content-module" class="module-section">
+                    <div class="charts-row">
+                        <div class="card chart-card">
+                            <h3>Trend Radar</h3>
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card ai-card">
+                            <h3>Timeless vs Updated Strategy</h3>
+                            <div class="progress-bar-wrapper">
+                                <span>Timeless (70%) - Edukasi, Relaksasi</span>
+                                <div class="progress-bar"><div class="fill" style="width: 70%; background: var(--primary);"></div></div>
+                            </div>
+                            <div class="progress-bar-wrapper">
+                                <span>Updated (30%) - Tren, Musik Viral</span>
+                                <div class="progress-bar"><div class="fill" style="width: 30%; background: var(--accent);"></div></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Content Calendar Highlights</h3>
+                        <div class="calendar-mock">
+                            <div class="cal-item timeless">
+                                <h4>Manfaat Pijat Aromaterapi</h4>
+                                <p>OIC Spa - 12 Jun (Timeless)</p>
+                            </div>
+                            <div class="cal-item updated">
+                                <h4>30 Days Fitness Challenge</h4>
+                                <p>OIC Gym - 15 Jun (Updated)</p>
+                            </div>
+                            <div class="cal-item timeless">
+                                <h4>Panduan Nutrisi Pemula</h4>
+                                <p>OIC Gym - 18 Jun (Timeless)</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Modul 4: Multi-Outlet -->
+                <section id="outlet-module" class="module-section">
+                    <div class="kpi-cards">
+                        <div class="card kpi">
+                            <i class="fa-solid fa-map-location-dot"></i>
+                            <div>
+                                <h3>Total Outlets</h3>
+                                <p>250+</p>
+                            </div>
+                        </div>
+                        <div class="card kpi">
+                            <i class="fa-solid fa-arrow-trend-up"></i>
+                            <div>
+                                <h3>Top Region</h3>
+                                <p>Jabodetabek</p>
+                            </div>
+                        </div>
+                        <div class="card kpi anomaly">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <div>
+                                <h3>Anomaly Alerts</h3>
+                                <p>3 Outlets <span class="trend down">Below Target</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="charts-row">
+                        <div class="card chart-card" style="flex: 2;">
+                            <h3>Regional Campaign Performance</h3>
+                            <div class="chart-container" style="height: 300px;">
+                                <canvas id="outletChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="card table-card" style="flex: 1;">
+                            <h3>Top Performing Outlets</h3>
+                            <ul class="ranking-list">
+                                <li><span class="rank">1</span> OIC Spa Sudirman <span>Rp 150M</span></li>
+                                <li><span class="rank">2</span> OIC Gym Senayan <span>Rp 142M</span></li>
+                                <li><span class="rank">3</span> OIC Spa Kemang <span>Rp 138M</span></li>
+                                <li><span class="rank">4</span> OIC Gym PIK <span>Rp 120M</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="js/app.js"></script>
+</body>
+</html>
