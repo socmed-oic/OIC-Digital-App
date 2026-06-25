@@ -87,26 +87,55 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     if (dashboardView) {
 
-        // --- AUTO-SYNC ON LOAD ---
+        // --- AUTO-SYNC GET LOGIC ---
         const masterSyncBtn = document.getElementById('pull-master-data-btn');
-        if (masterSyncBtn) {
-            // Simulate auto-sync on load
-            const originalText = masterSyncBtn.innerHTML;
-            masterSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
-            masterSyncBtn.style.background = 'rgba(255,255,255,0.2)';
+
+        async function pullMasterData() {
+            if (!gsheetSyncUrl) return;
+            if (masterSyncBtn) {
+                masterSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+                masterSyncBtn.style.background = 'rgba(255,255,255,0.2)';
+            }
             
-            setTimeout(() => {
-                masterSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced with Master';
-                masterSyncBtn.style.background = 'rgba(167,243,208,0.3)';
-                masterSyncBtn.style.borderColor = 'rgba(167,243,208,0.5)';
+            try {
+                // Simple GET request follows 302 redirect and reads JSON
+                const res = await fetch(gsheetSyncUrl);
+                const data = await res.json();
                 
-                // Revert after 3 seconds
-                setTimeout(() => {
-                    masterSyncBtn.innerHTML = originalText;
-                    masterSyncBtn.style.background = '';
-                    masterSyncBtn.style.borderColor = '';
-                }, 3000);
-            }, 1500);
+                if (data && data.length > 0) {
+                    // Re-use our parsed data function to update charts/KPIs
+                    handleParsedData(data, Object.keys(data[0]), 'Master_Spreadsheet');
+                }
+                
+                if (masterSyncBtn) {
+                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced with Master';
+                    masterSyncBtn.style.background = 'rgba(167,243,208,0.3)';
+                    masterSyncBtn.style.borderColor = 'rgba(167,243,208,0.5)';
+                    setTimeout(() => {
+                        masterSyncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
+                        masterSyncBtn.style.background = '';
+                        masterSyncBtn.style.borderColor = '';
+                    }, 3000);
+                }
+            } catch (err) {
+                console.error(err);
+                if (masterSyncBtn) {
+                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
+                    masterSyncBtn.style.background = 'rgba(254,202,202,0.3)';
+                    setTimeout(() => {
+                        masterSyncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
+                        masterSyncBtn.style.background = '';
+                    }, 3000);
+                }
+            }
+        }
+
+        // Fire on load
+        pullMasterData();
+
+        // Fire on button click
+        if (masterSyncBtn) {
+            masterSyncBtn.addEventListener('click', pullMasterData);
         }
 
         // --- DATE PICKER & SHORTCUTS ---
@@ -267,10 +296,24 @@ document.addEventListener('DOMContentLoaded', () => {
             saveKeyBtn.addEventListener('click', () => {
                 const val = apiKeyInput.value.trim();
                 if (val) {
-                    geminiApiKey = val;
-                    localStorage.setItem('gemini_api_key', val);
-                    keyStatus.className = 'sheets-status connected';
-                    keyStatus.textContent = 'Key Saved';
+                    keyStatus.className = 'sheets-status disconnected';
+                    keyStatus.textContent = 'Testing Key...';
+                    
+                    // Ping Gemini 1.5 Flash to validate key
+                    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${val}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
+                    }).then(res => {
+                        if(!res.ok) throw new Error();
+                        geminiApiKey = val;
+                        localStorage.setItem('gemini_api_key', val);
+                        keyStatus.className = 'sheets-status connected';
+                        keyStatus.textContent = 'Key Saved & Valid';
+                    }).catch(() => {
+                        keyStatus.className = 'sheets-status disconnected';
+                        keyStatus.textContent = 'Invalid API Key';
+                    });
                 }
             });
         }
