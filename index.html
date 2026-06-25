@@ -6,6 +6,8 @@
     <title>OIC Digital Hub</title>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -113,6 +115,9 @@
                 </li>
                 <li data-target="outlet-module" title="Multi-Outlet Report">
                     <i class="fa-solid fa-store"></i><span>Outlets</span>
+                </li>
+                <li data-target="ai-module" title="AI Processor">
+                    <i class="fa-solid fa-brain" style="color: #a78bfa;"></i><span style="color: #a78bfa;">AI Processor</span>
                 </li>
             </ul>
             <div class="sidebar-bottom">
@@ -372,6 +377,54 @@
                                 </li>
                             </ul>
                         </div>
+                    </div>
+                </section>
+
+                <!-- 5. AI PROCESSOR MODULE -->
+                <section id="ai-module" class="module-section">
+                    <div class="spatial-grid">
+                        
+                        <!-- Configuration Card -->
+                        <div class="glass-card col-span-4" id="ai-config-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-key" style="color: #a78bfa; margin-right: 8px;"></i> AI Configuration</h3>
+                            </div>
+                            <div class="sheets-connector">
+                                <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key (Required)">
+                                <button id="save-api-key" class="glass-btn primary">Save Key</button>
+                                <div id="api-key-status" class="sheets-status disconnected">Key Missing</div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Zone -->
+                        <div class="glass-card col-span-4" id="upload-zone" style="text-align: center; padding: 60px 20px; border: 2px dashed rgba(255,255,255,0.3); transition: all 0.3s; cursor: pointer;">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3rem; color: #a78bfa; margin-bottom: 16px;"></i>
+                            <h3>Upload Spreadsheet Data</h3>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 8px;">Drag & Drop a CSV file here or click to browse</p>
+                            <input type="file" id="file-input" accept=".csv" style="display: none;">
+                        </div>
+
+                        <!-- Chat Interface (Hidden until file is uploaded) -->
+                        <div class="glass-card col-span-4" id="ai-chat-interface" style="display: none; height: 500px; display: none; flex-direction: column;">
+                            <div class="card-header" style="margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <h3><i class="fa-solid fa-robot" style="color: #a78bfa; margin-right: 8px;"></i> Data Processor Agent</h3>
+                                <div class="glass-pill-group">
+                                    <span class="glass-tag" id="dataset-stats">0 Rows Loaded</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Chat Log -->
+                            <div id="chat-log" style="flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 16px;">
+                                <!-- Messages will go here -->
+                            </div>
+
+                            <!-- Chat Input -->
+                            <div class="sheets-connector" style="margin-bottom: 0; margin-top: 16px; padding: 0;">
+                                <input type="text" id="chat-input" placeholder="Ask the AI about your data or give instructions...">
+                                <button id="send-chat" class="glass-btn primary"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+
                     </div>
                 </section>
 

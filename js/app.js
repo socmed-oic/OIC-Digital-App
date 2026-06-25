@@ -389,4 +389,174 @@ document.addEventListener('DOMContentLoaded', () => {
             plugins: { legend: { display: false } }
         }
     });
+
+    // =========================================================================
+    // 6. AI DATA PROCESSOR (Gemini API Integration)
+    // =========================================================================
+    const apiKeyInput = document.getElementById('gemini-api-key');
+    const saveKeyBtn = document.getElementById('save-api-key');
+    const keyStatus = document.getElementById('api-key-status');
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    const chatInterface = document.getElementById('ai-chat-interface');
+    const chatLog = document.getElementById('chat-log');
+    const chatInput = document.getElementById('chat-input');
+    const sendChatBtn = document.getElementById('send-chat');
+    const datasetStats = document.getElementById('dataset-stats');
+
+    let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+    let currentDataProfile = null;
+    let chatHistory = [];
+
+    // Load saved key on init
+    if (geminiApiKey) {
+        apiKeyInput.value = geminiApiKey;
+        keyStatus.className = 'sheets-status connected';
+        keyStatus.textContent = 'Key Saved';
+        keyStatus.style.color = '#a7f3d0';
+    }
+
+    // Save API Key
+    if (saveKeyBtn) {
+        saveKeyBtn.addEventListener('click', () => {
+            const val = apiKeyInput.value.trim();
+            if (val) {
+                geminiApiKey = val;
+                localStorage.setItem('gemini_api_key', val);
+                keyStatus.className = 'sheets-status connected';
+                keyStatus.textContent = 'Key Saved';
+                keyStatus.style.color = '#a7f3d0';
+            }
+        });
+    }
+
+    // Upload Click to trigger file input
+    if (uploadZone) {
+        uploadZone.addEventListener('click', () => fileInput.click());
+        uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'rgba(255,255,255,0.8)'; });
+        uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'rgba(255,255,255,0.3)'; });
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = 'rgba(255,255,255,0.3)';
+            if (e.dataTransfer.files.length) {
+                processFile(e.dataTransfer.files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                processFile(e.target.files[0]);
+            }
+        });
+    }
+
+    function processFile(file) {
+        if (!file.name.endsWith('.csv')) {
+            alert('Please upload a CSV file.');
+            return;
+        }
+        
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                const data = results.data;
+                const columns = results.meta.fields;
+                
+                // Pre-analysis
+                let blankCount = 0;
+                data.forEach(row => {
+                    columns.forEach(col => { if (!row[col]) blankCount++; });
+                });
+
+                currentDataProfile = {
+                    filename: file.name,
+                    totalRows: data.length,
+                    columns: columns,
+                    blankCellsFound: blankCount,
+                    sampleData: data.slice(0, 5) // Send only 5 rows to Gemini to save tokens
+                };
+
+                // Update UI
+                datasetStats.textContent = `${data.length} Rows Loaded`;
+                uploadZone.style.display = 'none';
+                chatInterface.style.display = 'flex';
+
+                // Initial AI Message
+                chatHistory = []; // Reset history
+                addChatMessage('AI', `I've successfully loaded **${file.name}**. It contains ${data.length} rows and ${columns.length} columns. I detected ${blankCount} blank cells. What would you like me to do with this data?`);
+            }
+        });
+    }
+
+    function addChatMessage(sender, text) {
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${sender === 'AI' ? 'ai' : 'user'}`;
+        // Simple markdown parsing for bold text
+        const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        bubble.innerHTML = formattedText;
+        chatLog.appendChild(bubble);
+        chatLog.scrollTop = chatLog.scrollHeight;
+    }
+
+    async function sendToGemini(userText) {
+        if (!geminiApiKey) {
+            addChatMessage('AI', 'Please save your Gemini API key in the configuration above first.');
+            return;
+        }
+
+        addChatMessage('User', userText);
+        chatInput.value = '';
+        
+        // Append user msg to history
+        chatHistory.push({ role: 'user', parts: [{ text: userText }] });
+
+        // Build system context
+        const systemInstruction = `You are a strict Data Quality Analyst. You are looking at a dataset named ${currentDataProfile.filename}.
+        Total Rows: ${currentDataProfile.totalRows}. 
+        Blank cells detected locally: ${currentDataProfile.blankCellsFound}.
+        Columns: ${currentDataProfile.columns.join(', ')}.
+        Here is a sample of the first 5 rows to understand the format: ${JSON.stringify(currentDataProfile.sampleData)}.
+        Keep your answers concise, conversational, and helpful. If the user asks about duplicates or missing data, tell them you can write a script or give them instructions on how to clean it.`;
+
+        const requestBody = {
+            system_instruction: { parts: { text: systemInstruction } },
+            contents: chatHistory
+        };
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            });
+
+            if (!response.ok) throw new Error('API Error');
+
+            const data = await response.json();
+            const aiText = data.candidates[0].content.parts[0].text;
+            
+            // Append AI msg to history
+            chatHistory.push({ role: 'model', parts: [{ text: aiText }] });
+            addChatMessage('AI', aiText);
+
+        } catch (error) {
+            console.error(error);
+            addChatMessage('AI', 'Sorry, I encountered an error communicating with the Gemini API. Please check your API key.');
+        }
+    }
+
+    if (sendChatBtn) {
+        sendChatBtn.addEventListener('click', () => {
+            const text = chatInput.value.trim();
+            if (text) sendToGemini(text);
+        });
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const text = chatInput.value.trim();
+                if (text) sendToGemini(text);
+            }
+        });
+    }
+
 });

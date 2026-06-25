@@ -833,6 +833,37 @@ h1, h2, h3, h4, h5, h6 {
 .sheets-status.connected { color: #a7f3d0; background: rgba(167,243,208,0.1); }
 .sheets-status.disconnected { color: #fecaca; background: rgba(254,202,202,0.1); }
 
+/* ==========================================================================
+   AI PROCESSOR MODULE
+   ========================================================================== */
+#upload-zone:hover {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.6) !important;
+}
+
+.chat-bubble {
+    max-width: 80%;
+    padding: 16px 20px;
+    border-radius: 20px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    animation: slideUp 0.3s ease-out;
+}
+
+.chat-bubble.ai {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-bottom-left-radius: 4px;
+}
+
+.chat-bubble.user {
+    align-self: flex-end;
+    background: rgba(167, 139, 250, 0.2); /* Purple tint */
+    border: 1px solid rgba(167, 139, 250, 0.4);
+    border-bottom-right-radius: 4px;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
     .hub-grid, .spatial-grid { grid-template-columns: repeat(2, 1fr); }
