@@ -58,6 +58,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Keyboard support for PIN
+    document.addEventListener('keydown', (e) => {
+        if (!loginView.classList.contains('active')) return;
+        
+        if (e.key >= '0' && e.key <= '9') {
+            if (currentPin.length < 4) {
+                currentPin += e.key;
+                updatePinDisplay();
+            }
+        } else if (e.key === 'Backspace') {
+            if (currentPin.length > 0) {
+                currentPin = currentPin.slice(0, -1);
+                updatePinDisplay();
+            }
+        } else if (e.key === 'Enter') {
+            enterBtn.click();
+        }
+    });
+
     // =========================================================================
     // 2. STANDALONE NAVIGATION (Hub & Exit)
     // =========================================================================

@@ -215,6 +215,8 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 500;
     font-family: 'Outfit', sans-serif;
     height: 64px;
+    width: 64px; /* Force perfect circle */
+    margin: 0 auto; /* Center in grid cell */
     border-radius: 50%;
     cursor: pointer;
     transition: var(--transition);
