@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
     flatpickr("#date-range-picker", {
         mode: "range",
         dateFormat: "d M Y",
+        position: "auto right",
         defaultDate: [new Date(new Date().setDate(new Date().getDate() - 7)), new Date()]
     });
 
