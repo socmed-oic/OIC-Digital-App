@@ -1,507 +1,387 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OIC Marketing & Analytics Dashboard</title>
-    <meta name="description" content="OIC Marketing & Analytics Dashboard — Ads Optimization, PR & Exposure, Content Planning, and Multi-Outlet Reporting.">
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <title>OIC Digital Hub</title>
     <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="css/style.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    
-    <!-- ====================== 1. LOGIN VIEW ====================== -->
-    <section id="login-view" class="view-section active">
-        <div class="login-container card">
+
+    <!-- LOGIN VIEW -->
+    <div id="login-view" class="view-section active glass-container-center">
+        <div class="glass-card login-card">
             <div class="login-header">
-                <div style="margin-bottom: 24px;">
-                    <img src="img/logo.png" alt="Odilia Infinity Corp." style="height: 80px; object-fit: contain;">
-                </div>
-                <h2>OIC Analytics</h2>
-                <p>Enter your 4-digit PIN to access the dashboard</p>
+                <img src="img/logo.png" alt="Odilia Infinity Corp." class="login-logo">
+                <h2>Welcome to OIC</h2>
+                <p>Enter your PIN to access the spatial dashboard</p>
             </div>
+            
             <div class="pin-display">
-                <span class="pin-dot"></span>
-                <span class="pin-dot"></span>
-                <span class="pin-dot"></span>
-                <span class="pin-dot"></span>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
+                <div class="pin-dot"></div>
             </div>
+
             <div class="pin-keypad">
-                <button class="key" data-key="1">1</button>
-                <button class="key" data-key="2">2</button>
-                <button class="key" data-key="3">3</button>
-                <button class="key" data-key="4">4</button>
-                <button class="key" data-key="5">5</button>
-                <button class="key" data-key="6">6</button>
-                <button class="key" data-key="7">7</button>
-                <button class="key" data-key="8">8</button>
-                <button class="key" data-key="9">9</button>
+                <button class="key">1</button>
+                <button class="key">2</button>
+                <button class="key">3</button>
+                <button class="key">4</button>
+                <button class="key">5</button>
+                <button class="key">6</button>
+                <button class="key">7</button>
+                <button class="key">8</button>
+                <button class="key">9</button>
                 <button class="key action-key" id="pin-clear"><i class="fa-solid fa-delete-left"></i></button>
-                <button class="key" data-key="0">0</button>
+                <button class="key">0</button>
                 <button class="key action-key" id="pin-enter"><i class="fa-solid fa-arrow-right"></i></button>
             </div>
-            <p id="pin-error" class="error-msg"></p>
+            <div id="pin-error" class="error-msg"></div>
         </div>
-    </section>
+    </div>
 
-    <!-- ====================== 2. HUB VIEW ====================== -->
-    <section id="hub-view" class="view-section">
-        <div class="hub-header">
-            <h2>Welcome to OIC</h2>
-            <p>Choose a module to get started</p>
-        </div>
-        <div class="hub-grid">
-            <div class="card hub-card" data-module="ads-module" style="--hub-accent: #ef4444;">
-                <div class="hub-icon"><i class="fa-solid fa-rocket"></i></div>
-                <h3>Ads & Optimization</h3>
-                <p>Campaign performance, ROAS tracking, and AI-powered budget insights</p>
+    <!-- HUB VIEW -->
+    <div id="hub-view" class="view-section glass-container-center">
+        <div class="hub-wrapper">
+            <div class="hub-header">
+                <h2>Welcome to OIC</h2>
+                <p>Choose a module to get started</p>
             </div>
-            <div class="card hub-card" data-module="pr-module" style="--hub-accent: #f59e0b;">
-                <div class="hub-icon"><i class="fa-solid fa-newspaper"></i></div>
-                <h3>PR & Exposure</h3>
-                <p>Earned media value, sentiment analysis, and influencer tracking</p>
-            </div>
-            <div class="card hub-card" data-module="content-module" style="--hub-accent: #22c55e;">
-                <div class="hub-icon"><i class="fa-solid fa-pen-ruler"></i></div>
-                <h3>Content Planning</h3>
-                <p>Trend radar, strategy mix, and content calendar management</p>
-            </div>
-            <div class="card hub-card" data-module="outlet-module" style="--hub-accent: #3b82f6;">
-                <div class="hub-icon"><i class="fa-solid fa-shop"></i></div>
-                <h3>Multi-Outlet Report</h3>
-                <p>Regional performance, outlet rankings, and anomaly detection</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- ====================== 3. DASHBOARD VIEW ====================== -->
-    <section id="dashboard-view" class="view-section">
-        <div class="dashboard">
-            <!-- Sidebar -->
-            <aside class="sidebar">
-                <div class="sidebar-header" style="display: flex; justify-content: center; align-items: center; padding: 0 12px; margin-bottom: 40px;">
-                    <img src="img/logo.png" alt="Odilia Infinity Corp." style="height: 50px; object-fit: contain;">
-                </div>
-                <ul class="nav-links">
-                    <li class="active" data-target="ads-module" style="--hub-accent: #ef4444;">
-                        <i class="fa-solid fa-rocket"></i> <span>Ads & Optimization</span>
-                    </li>
-                    <li data-target="pr-module" style="--hub-accent: #f59e0b;">
-                        <i class="fa-solid fa-newspaper"></i> <span>PR & Exposure</span>
-                    </li>
-                    <li data-target="content-module" style="--hub-accent: #22c55e;">
-                        <i class="fa-solid fa-pen-ruler"></i> <span>Content Planning</span>
-                    </li>
-                    <li data-target="outlet-module" style="--hub-accent: #3b82f6;">
-                        <i class="fa-solid fa-shop"></i> <span>Multi-Outlet</span>
-                    </li>
-                </ul>
-                <div class="sidebar-footer">
-                    <button id="back-to-hub"><i class="fa-solid fa-grid-2"></i> Module Hub</button>
-                </div>
-            </aside>
-
-            <!-- Main Content -->
-            <main class="main-content">
-                <header class="topbar">
-                    <div>
-                        <h1 id="current-module-title">Ads & Optimization</h1>
+            
+            <div class="hub-grid">
+                <!-- Ads & Optimization -->
+                <div class="glass-card hub-card" data-module="ads-module">
+                    <div class="hub-icon-wrapper" style="background: rgba(239, 68, 68, 0.15); color: #ff6b6b;">
+                        <i class="fa-solid fa-rocket"></i>
                     </div>
-                    <div class="topbar-actions">
-                        <div class="search-bar">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                            <input type="text" placeholder="Search anything..." id="global-search">
-                        </div>
-                        <button class="icon-btn" title="Notifications">
-                            <i class="fa-regular fa-bell"></i>
-                            <span class="notification-dot"></span>
-                        </button>
-                        <div class="user-profile">
-                            <div class="avatar"><i class="fa-solid fa-user"></i></div>
-                            <span>Marketing Exec</span>
-                        </div>
+                    <h3>Ads & Optimization</h3>
+                    <p>Campaign performance, ROAS tracking, and AI-powered budget insights</p>
+                </div>
+
+                <!-- PR & Exposure -->
+                <div class="glass-card hub-card" data-module="pr-module">
+                    <div class="hub-icon-wrapper" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
+                        <i class="fa-regular fa-newspaper"></i>
                     </div>
-                </header>
+                    <h3>PR & Exposure</h3>
+                    <p>Earned media value, sentiment analysis, and influencer tracking</p>
+                </div>
 
-                <div class="content-wrapper">
+                <!-- Content Planning -->
+                <div class="glass-card hub-card" data-module="content-module">
+                    <div class="hub-icon-wrapper" style="background: rgba(34, 197, 94, 0.15); color: #4ade80;">
+                        <i class="fa-solid fa-pen-ruler"></i>
+                    </div>
+                    <h3>Content Planning</h3>
+                    <p>Trend radar, strategy mix, and content calendar management</p>
+                </div>
 
-                    <!-- ============== MODULE 1: ADS ============== -->
-                    <section id="ads-module" class="module-section active">
-                        
-                        <!-- Google Sheets Connector -->
-                        <div class="sheets-config">
-                            <i class="fa-solid fa-table" style="color: #22c55e; font-size: 1.2rem;"></i>
-                            <input type="text" id="sheets-url" placeholder="Paste your Google Sheets URL here...">
-                            <button id="connect-sheets"><i class="fa-solid fa-plug"></i> Connect</button>
-                        </div>
-                        <div class="sheets-status disconnected" id="sheets-status">
-                            <i class="fa-solid fa-circle-info"></i>
-                            <span>Not connected — using demo data</span>
-                        </div>
+                <!-- Multi-Outlet Report -->
+                <div class="glass-card hub-card" data-module="outlet-module">
+                    <div class="hub-icon-wrapper" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <h3>Multi-Outlet Report</h3>
+                    <p>Regional performance, outlet rankings, and anomaly detection</p>
+                </div>
+            </div>
+        </div>
+    </div>
 
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" class="view-section">
+        
+        <!-- Floating Sidebar -->
+        <aside class="floating-sidebar glass-panel">
+            <div class="sidebar-logo">
+                <img src="img/logo.png" alt="OIC Logo">
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-target="ads-module" title="Ads & Optimization">
+                    <i class="fa-solid fa-rocket"></i><span>Ads & Opt.</span>
+                </li>
+                <li data-target="pr-module" title="PR & Exposure">
+                    <i class="fa-regular fa-newspaper"></i><span>PR & Exposure</span>
+                </li>
+                <li data-target="content-module" title="Content Planning">
+                    <i class="fa-solid fa-pen-ruler"></i><span>Content Plan</span>
+                </li>
+                <li data-target="outlet-module" title="Multi-Outlet Report">
+                    <i class="fa-solid fa-store"></i><span>Outlets</span>
+                </li>
+            </ul>
+            <div class="sidebar-bottom">
+                <button id="back-to-hub" class="glass-btn">
+                    <i class="fa-solid fa-arrow-left"></i><span>Exit</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Floating Topbar -->
+            <header class="floating-topbar glass-panel">
+                <div class="topbar-left">
+                    <h2 id="current-module-title">Ads & Optimization</h2>
+                </div>
+                <div class="topbar-right">
+                    <div class="search-pill glass-pill">
+                        <i class="fa-solid fa-search"></i>
+                        <input type="text" placeholder="Search insights...">
+                    </div>
+                    <div class="glass-icon-btn">
+                        <i class="fa-regular fa-bell"></i>
+                        <div class="notification-dot"></div>
+                    </div>
+                    <div class="glass-pill date-pill" id="topbar-date">
+                        Mon, 24 Jun 2024
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-scroll-area">
+                
+                <!-- 1. ADS & OPTIMIZATION MODULE -->
+                <section id="ads-module" class="module-section active">
+                    
+                    <div class="glass-panel sheets-connector">
+                        <i class="fa-solid fa-file-excel" style="color: #4ade80; font-size: 1.5rem;"></i>
+                        <input type="text" id="sheet-url-input" placeholder="Paste Google Sheets URL here...">
+                        <button id="connect-sheets" class="glass-btn primary">Connect Data</button>
+                        <div id="sheets-status" class="sheets-status disconnected">Disconnected</div>
+                    </div>
+
+                    <div class="spatial-grid">
                         <!-- KPI Row -->
-                        <div class="bento-grid">
-                            <div class="card bento-kpi col-span-1" id="kpi-impressions">
-                                <div class="bento-icon" style="color: #ef4444; background: rgba(239,68,68,0.1);"><i class="fa-solid fa-eye"></i></div>
-                                <p class="label">Impressions</p>
-                                <p class="value" data-target="1200000" data-suffix="">1.2M</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 15% vs last month</span>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Total Spend</span>
+                                <div class="glass-icon"><i class="fa-solid fa-wallet"></i></div>
                             </div>
-                            <div class="card bento-kpi col-span-1" id="kpi-ctr">
-                                <div class="bento-icon" style="color: #3b82f6; background: rgba(59,130,246,0.1);"><i class="fa-solid fa-arrow-pointer"></i></div>
-                                <p class="label">Avg. CTR</p>
-                                <p class="value">4.5%</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 1.2% vs last month</span>
+                            <div class="value">Rp 45.2M</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +12%</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Impressions</span>
+                                <div class="glass-icon"><i class="fa-solid fa-eye"></i></div>
                             </div>
-                            <div class="card bento-kpi col-span-1" id="kpi-cpa">
-                                <div class="bento-icon" style="color: #8b5cf6; background: rgba(139,92,246,0.1);"><i class="fa-solid fa-bullseye"></i></div>
-                                <p class="label">Cost Per Action</p>
-                                <p class="value">Rp 45K</p>
-                                <span class="trend down"><i class="fa-solid fa-arrow-down" style="font-size:0.7rem;"></i> 5% vs last month</span>
+                            <div class="value">12.8M</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +8%</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Avg. CPC</span>
+                                <div class="glass-icon"><i class="fa-solid fa-mouse-pointer"></i></div>
                             </div>
-                            <div class="card bento-kpi col-span-1" id="kpi-roas">
-                                <div class="bento-icon" style="color: #0d9488; background: rgba(13,148,136,0.1);"><i class="fa-solid fa-coins"></i></div>
-                                <p class="label">Return on Ad Spend</p>
-                                <p class="value">3.2x</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 0.5x vs last month</span>
+                            <div class="value">Rp 1,250</div>
+                            <div class="trend down"><i class="fa-solid fa-arrow-trend-down"></i> -5%</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Avg. ROAS</span>
+                                <div class="glass-icon"><i class="fa-solid fa-bullseye"></i></div>
                             </div>
+                            <div class="value">4.2x</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +1.1x</div>
+                        </div>
 
-                            <!-- Chart: Multi-Platform -->
-                            <div class="card col-span-3 row-span-2">
-                                <div class="section-header">
-                                    <h3>Multi-Platform Performance</h3>
-                                    <div class="filter-group">
-                                        <button class="filter-btn active">Weekly</button>
-                                        <button class="filter-btn">Monthly</button>
-                                        <button class="filter-btn">Quarterly</button>
-                                    </div>
-                                </div>
-                                <div class="chart-container" style="height: 320px;">
-                                    <canvas id="adsChart"></canvas>
+                        <!-- Charts -->
+                        <div class="glass-card col-span-3 row-span-2">
+                            <div class="card-header">
+                                <h3>Cross-Platform Performance</h3>
+                                <div class="glass-pill-group">
+                                    <button class="glass-tab active">Clicks</button>
+                                    <button class="glass-tab">Spend</button>
                                 </div>
                             </div>
+                            <div class="chart-wrapper" style="height: 300px;">
+                                <canvas id="adsChart"></canvas>
+                            </div>
+                        </div>
 
-                            <!-- Budget Split Donut + AI Insights -->
-                            <div class="card col-span-1 row-span-2" style="display:flex; flex-direction:column;">
-                                <div class="section-header">
-                                    <h3>Budget Split</h3>
-                                </div>
-                                <div class="chart-container" style="height: 180px; margin-bottom: 16px;">
-                                    <canvas id="adsPieChart"></canvas>
-                                </div>
-                                <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: auto;">
-                                    <h3 style="font-family: 'Outfit'; font-size: 0.95rem; margin-bottom: 12px;"><i class="fa-solid fa-wand-magic-sparkles" style="color:#f59e0b;"></i> AI Insight</h3>
-                                    <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">Shift <strong>20% budget</strong> from Meta to TikTok — CPA is <strong>35% lower</strong> on short-form video.</p>
+                        <div class="glass-card col-span-1 row-span-2">
+                            <div class="card-header">
+                                <h3>Budget Allocation</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 250px;">
+                                <canvas id="adsPieChart"></canvas>
+                            </div>
+                            <div class="custom-legend mt-4">
+                                <div class="legend-item"><span class="dot" style="background:#ffffff"></span> Google (35%)</div>
+                                <div class="legend-item"><span class="dot" style="background:rgba(255,255,255,0.6)"></span> Meta (40%)</div>
+                                <div class="legend-item"><span class="dot" style="background:rgba(255,255,255,0.3)"></span> TikTok (25%)</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. PR & EXPOSURE MODULE -->
+                <section id="pr-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card kpi-card col-span-2">
+                            <div class="kpi-header">
+                                <span class="label">Earned Media Value (EMV)</span>
+                                <div class="glass-icon"><i class="fa-solid fa-sack-dollar"></i></div>
+                            </div>
+                            <div class="value">Rp 125.8M</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> +24% vs last month</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-2">
+                            <div class="kpi-header">
+                                <span class="label">Share of Voice</span>
+                                <div class="glass-icon"><i class="fa-solid fa-bullhorn"></i></div>
+                            </div>
+                            <div class="value">42.5%</div>
+                            <div class="trend up"><i class="fa-solid fa-arrow-trend-up"></i> Top in category</div>
+                        </div>
+
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>PR Cost vs EMV Trend</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 280px;">
+                                <canvas id="prRoiChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>Brand Sentiment</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 280px; position: relative;">
+                                <canvas id="sentimentChart"></canvas>
+                                <!-- The center text is handled via chart plugin or absolute positioning in CSS -->
+                                <div class="sentiment-center">
+                                    <div class="score">85</div>
+                                    <div class="label">Positive</div>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- ============== MODULE 2: PR ============== -->
-                    <section id="pr-module" class="module-section">
-                        <div class="bento-grid">
-                            <!-- KPI Cards for PR -->
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #f59e0b; background: rgba(245,158,11,0.1);"><i class="fa-solid fa-newspaper"></i></div>
-                                <p class="label">Media Mentions</p>
-                                <p class="value">342</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 28% this quarter</span>
+                <!-- 3. CONTENT PLANNING MODULE -->
+                <section id="content-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>Trend Radar</h3>
+                                <span class="glass-tag">AI Detected</span>
                             </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #22c55e; background: rgba(34,197,94,0.1);"><i class="fa-solid fa-hand-holding-dollar"></i></div>
-                                <p class="label">Earned Media Value</p>
-                                <p class="value">Rp 2.1B</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 42% vs last quarter</span>
-                            </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #3b82f6; background: rgba(59,130,246,0.1);"><i class="fa-solid fa-heart"></i></div>
-                                <p class="label">Positive Sentiment</p>
-                                <p class="value">75%</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 5% improvement</span>
-                            </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #8b5cf6; background: rgba(139,92,246,0.1);"><i class="fa-solid fa-users"></i></div>
-                                <p class="label">Influencer Partners</p>
-                                <p class="value">24</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 6 new this month</span>
-                            </div>
-
-                            <!-- PR ROI Chart -->
-                            <div class="card col-span-2 row-span-2">
-                                <div class="section-header">
-                                    <h3>PR Cost vs Earned Media Value</h3>
-                                    <div class="filter-group">
-                                        <button class="filter-btn active">6 Months</button>
-                                        <button class="filter-btn">1 Year</button>
-                                    </div>
-                                </div>
-                                <div class="chart-container" style="height: 320px;">
-                                    <canvas id="prRoiChart"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- Sentiment Donut -->
-                            <div class="card col-span-2 row-span-2">
-                                <div class="section-header">
-                                    <h3>Sentiment Analysis</h3>
-                                </div>
-                                <div class="chart-container" style="height: 260px;">
-                                    <canvas id="sentimentChart"></canvas>
-                                </div>
-                                <div style="display: flex; gap: 24px; justify-content: center; margin-top: 16px;">
-                                    <div style="text-align:center;"><span style="font-family:'Outfit'; font-size:1.5rem; font-weight:700; color: #22c55e;">75%</span><br><span style="font-size:0.8rem; color: var(--text-secondary);">Positive</span></div>
-                                    <div style="text-align:center;"><span style="font-family:'Outfit'; font-size:1.5rem; font-weight:700; color: #f59e0b;">20%</span><br><span style="font-size:0.8rem; color: var(--text-secondary);">Neutral</span></div>
-                                    <div style="text-align:center;"><span style="font-family:'Outfit'; font-size:1.5rem; font-weight:700; color: #ef4444;">5%</span><br><span style="font-size:0.8rem; color: var(--text-secondary);">Negative</span></div>
-                                </div>
-                            </div>
-
-                            <!-- Exposure Table -->
-                            <div class="card col-span-4">
-                                <div class="section-header">
-                                    <h3>Exposure & Engagement Tracker</h3>
-                                    <div class="filter-group">
-                                        <button class="filter-btn"><i class="fa-solid fa-download"></i> Export</button>
-                                    </div>
-                                </div>
-                                <div class="table-responsive">
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Media / Influencer</th>
-                                                <th>Platform</th>
-                                                <th>Reach</th>
-                                                <th>Views</th>
-                                                <th>Link Clicks</th>
-                                                <th>Engagement Rate</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td><strong>BeautyVlogger A</strong></td>
-                                                <td><i class="fa-brands fa-instagram" style="color:#E1306C;"></i> Instagram</td>
-                                                <td>500K</td>
-                                                <td>120K</td>
-                                                <td>5.4K</td>
-                                                <td>4.5%</td>
-                                                <td><span class="badge success">High ROI</span></td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Wellness Magazine</strong></td>
-                                                <td><i class="fa-solid fa-globe" style="color:#3b82f6;"></i> Web</td>
-                                                <td>1.2M</td>
-                                                <td>300K</td>
-                                                <td>2.1K</td>
-                                                <td>1.8%</td>
-                                                <td><span class="badge warning">Moderate</span></td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>FitLife Creator</strong></td>
-                                                <td><i class="fa-brands fa-tiktok"></i> TikTok</td>
-                                                <td>2.3M</td>
-                                                <td>850K</td>
-                                                <td>12.3K</td>
-                                                <td>6.2%</td>
-                                                <td><span class="badge success">High ROI</span></td>
-                                            </tr>
-                                            <tr>
-                                                <td><strong>Spa Weekly</strong></td>
-                                                <td><i class="fa-brands fa-youtube" style="color:#FF0000;"></i> YouTube</td>
-                                                <td>780K</td>
-                                                <td>210K</td>
-                                                <td>3.8K</td>
-                                                <td>3.1%</td>
-                                                <td><span class="badge info">Growing</span></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="chart-wrapper" style="height: 320px;">
+                                <canvas id="trendChart"></canvas>
                             </div>
                         </div>
-                    </section>
 
-                    <!-- ============== MODULE 3: CONTENT ============== -->
-                    <section id="content-module" class="module-section">
-                        <div class="bento-grid">
-                            <!-- Content KPIs -->
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #22c55e; background: rgba(34,197,94,0.1);"><i class="fa-solid fa-file-lines"></i></div>
-                                <p class="label">Posts This Month</p>
-                                <p class="value">48</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 12 more than target</span>
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>Content Calendar</h3>
                             </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #3b82f6; background: rgba(59,130,246,0.1);"><i class="fa-solid fa-chart-simple"></i></div>
-                                <p class="label">Avg. Engagement</p>
-                                <p class="value">5.8%</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 1.3% vs benchmark</span>
-                            </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #f59e0b; background: rgba(245,158,11,0.1);"><i class="fa-solid fa-fire"></i></div>
-                                <p class="label">Top Performing</p>
-                                <p class="value">Reels</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 3.2x avg. reach</span>
-                            </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #8b5cf6; background: rgba(139,92,246,0.1);"><i class="fa-solid fa-user-plus"></i></div>
-                                <p class="label">New Followers</p>
-                                <p class="value">12.4K</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 22% growth rate</span>
-                            </div>
-
-                            <!-- Trend Radar -->
-                            <div class="card col-span-2 row-span-2">
-                                <div class="section-header">
-                                    <h3>Trend Radar</h3>
+                            <div class="glass-calendar">
+                                <!-- Mimicking the glass calendar reference -->
+                                <div class="cal-week">
+                                    <div class="day"><span>M</span><span>2</span></div>
+                                    <div class="day"><span>T</span><span>3</span></div>
+                                    <div class="day"><span>W</span><span>4</span></div>
+                                    <div class="day active"><span>T</span><span>5</span><div class="dot"></div></div>
+                                    <div class="day"><span>F</span><span>6</span></div>
+                                    <div class="day"><span>S</span><span>7</span></div>
+                                    <div class="day"><span>S</span><span>8</span></div>
                                 </div>
-                                <div class="chart-container" style="height: 340px;">
-                                    <canvas id="trendChart"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- Strategy Mix -->
-                            <div class="card col-span-2 row-span-1">
-                                <div class="section-header">
-                                    <h3>Content Strategy Mix</h3>
-                                </div>
-                                <div class="progress-bar-wrapper">
-                                    <div class="progress-labels"><span>Timeless — Edukasi, Relaksasi, Tips</span><span>70%</span></div>
-                                    <div class="progress-bar"><div class="fill" style="width: 70%; background: linear-gradient(90deg, #1a1a2e, #16213e);"></div></div>
-                                </div>
-                                <div class="progress-bar-wrapper">
-                                    <div class="progress-labels"><span>Updated — Tren, Musik Viral, Challenges</span><span>30%</span></div>
-                                    <div class="progress-bar"><div class="fill" style="width: 30%; background: linear-gradient(90deg, #d4a574, #e8d5b7);"></div></div>
-                                </div>
-                            </div>
-
-                            <!-- Calendar -->
-                            <div class="card col-span-2 row-span-1">
-                                <div class="section-header">
-                                    <h3>Upcoming Content</h3>
-                                    <div class="filter-group">
-                                        <button class="filter-btn active">This Week</button>
-                                        <button class="filter-btn">This Month</button>
-                                    </div>
-                                </div>
-                                <div class="calendar-mock">
-                                    <div class="cal-item timeless">
-                                        <div class="cal-date">12<br><small>Jun</small></div>
-                                        <div class="cal-details">
-                                            <h4>Manfaat Pijat Aromaterapi</h4>
-                                            <p>OIC Spa • Instagram Carousel</p>
+                                <div class="cal-events">
+                                    <div class="glass-event">
+                                        <div class="event-icon" style="background-image: url('https://i.pravatar.cc/100?img=1')"></div>
+                                        <div class="event-details">
+                                            <h4>TikTok Trend Challenge</h4>
+                                            <p>3 PM • MARKETING TEAM</p>
                                         </div>
+                                        <i class="fa-solid fa-chevron-right"></i>
                                     </div>
-                                    <div class="cal-item updated">
-                                        <div class="cal-date">15<br><small>Jun</small></div>
-                                        <div class="cal-details">
-                                            <h4>30-Day Fitness Challenge</h4>
-                                            <p>OIC Gym • TikTok Reel</p>
+                                    <div class="glass-event">
+                                        <div class="event-icon" style="background-image: url('https://i.pravatar.cc/100?img=2')"></div>
+                                        <div class="event-details">
+                                            <h4>Instagram Live Collab</h4>
+                                            <p>5 PM • INFLUENCER RELATIONS</p>
                                         </div>
-                                    </div>
-                                    <div class="cal-item timeless">
-                                        <div class="cal-date">18<br><small>Jun</small></div>
-                                        <div class="cal-details">
-                                            <h4>Panduan Nutrisi Pemula</h4>
-                                            <p>OIC Gym • Blog + IG Story</p>
-                                        </div>
-                                    </div>
-                                    <div class="cal-item updated">
-                                        <div class="cal-date">22<br><small>Jun</small></div>
-                                        <div class="cal-details">
-                                            <h4>Weekend Self-Care Routine</h4>
-                                            <p>OIC Spa • YouTube Short</p>
-                                        </div>
+                                        <i class="fa-solid fa-chevron-right"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
+                    </div>
+                </section>
 
-                    <!-- ============== MODULE 4: MULTI-OUTLET ============== -->
-                    <section id="outlet-module" class="module-section">
-                        <div class="bento-grid">
-                            <!-- Outlet KPIs -->
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #1a1a2e; background: rgba(26,26,46,0.08);"><i class="fa-solid fa-location-dot"></i></div>
-                                <p class="label">Total Outlets</p>
-                                <p class="value">250+</p>
+                <!-- 4. MULTI-OUTLET MODULE -->
+                <section id="outlet-module" class="module-section">
+                    <div class="spatial-grid">
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>Top Performing Regions</h3>
                             </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #22c55e; background: rgba(34,197,94,0.1);"><i class="fa-solid fa-arrow-trend-up"></i></div>
-                                <p class="label">Top Region</p>
-                                <p class="value" style="font-size: 1.6rem;">Jabodetabek</p>
-                            </div>
-                            <div class="card bento-kpi col-span-1">
-                                <div class="bento-icon" style="color: #3b82f6; background: rgba(59,130,246,0.1);"><i class="fa-solid fa-money-bill-trend-up"></i></div>
-                                <p class="label">Total Revenue</p>
-                                <p class="value">Rp 4.3B</p>
-                                <span class="trend up"><i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> 18% YoY</span>
-                            </div>
-                            <div class="card bento-kpi col-span-1" style="border: 1px solid rgba(239,68,68,0.3);">
-                                <div class="bento-icon" style="color: #ef4444; background: rgba(239,68,68,0.1);"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                                <p class="label">Anomaly Alerts</p>
-                                <p class="value" style="color: #ef4444;">3</p>
-                                <span class="trend down"><i class="fa-solid fa-arrow-down" style="font-size:0.7rem;"></i> Below target</span>
-                            </div>
-
-                            <!-- Regional Chart -->
-                            <div class="card col-span-3 row-span-2">
-                                <div class="section-header">
-                                    <h3>Revenue by Region</h3>
-                                    <div class="filter-group">
-                                        <button class="filter-btn active">Revenue</button>
-                                        <button class="filter-btn">Customers</button>
-                                    </div>
-                                </div>
-                                <div class="chart-container" style="height: 320px;">
-                                    <canvas id="outletChart"></canvas>
-                                </div>
-                            </div>
-
-                            <!-- Top Outlets Ranking -->
-                            <div class="card col-span-1 row-span-2">
-                                <div class="section-header">
-                                    <h3>Top Outlets</h3>
-                                </div>
-                                <ul class="ranking-list">
-                                    <li>
-                                        <div class="rank-info"><span class="rank rank-gold">1</span> OIC Spa Sudirman</div>
-                                        <span class="revenue">Rp 150M</span>
-                                    </li>
-                                    <li>
-                                        <div class="rank-info"><span class="rank rank-silver">2</span> OIC Gym Senayan</div>
-                                        <span class="revenue">Rp 142M</span>
-                                    </li>
-                                    <li>
-                                        <div class="rank-info"><span class="rank rank-bronze">3</span> OIC Spa Kemang</div>
-                                        <span class="revenue">Rp 138M</span>
-                                    </li>
-                                    <li>
-                                        <div class="rank-info"><span class="rank rank-default">4</span> OIC Gym PIK</div>
-                                        <span class="revenue">Rp 120M</span>
-                                    </li>
-                                    <li>
-                                        <div class="rank-info"><span class="rank rank-default">5</span> OIC Spa Bandung</div>
-                                        <span class="revenue">Rp 112M</span>
-                                    </li>
-                                </ul>
+                            <div class="chart-wrapper" style="height: 300px;">
+                                <canvas id="outletChart"></canvas>
                             </div>
                         </div>
-                    </section>
+                        
+                        <div class="glass-card col-span-2 row-span-2">
+                            <div class="card-header">
+                                <h3>Outlet Ranking (Revenue)</h3>
+                            </div>
+                            <ul class="glass-list">
+                                <li>
+                                    <div class="list-left">
+                                        <div class="rank-badge gold">1</div>
+                                        <span>Jakarta Selatan</span>
+                                    </div>
+                                    <div class="list-right">Rp 450M</div>
+                                </li>
+                                <li>
+                                    <div class="list-left">
+                                        <div class="rank-badge silver">2</div>
+                                        <span>Bandung City</span>
+                                    </div>
+                                    <div class="list-right">Rp 380M</div>
+                                </li>
+                                <li>
+                                    <div class="list-left">
+                                        <div class="rank-badge bronze">3</div>
+                                        <span>Surabaya Pusat</span>
+                                    </div>
+                                    <div class="list-right">Rp 310M</div>
+                                </li>
+                                <li>
+                                    <div class="list-left">
+                                        <div class="rank-badge">4</div>
+                                        <span>Bali Region</span>
+                                    </div>
+                                    <div class="list-right">Rp 290M</div>
+                                </li>
+                                <li>
+                                    <div class="list-left">
+                                        <div class="rank-badge">5</div>
+                                        <span>Medan</span>
+                                    </div>
+                                    <div class="list-right">Rp 210M</div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
 
-                </div>
-            </main>
-        </div>
-    </section>
+            </div>
+        </main>
+    </div>
 
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- App Logic -->
     <script src="js/app.js"></script>
 </body>
 </html>
