@@ -499,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Keep answers concise. If the user says "Sync it", tell them to click the Sync button at the top.`;
 
             const requestBody = {
-                system_instruction: { parts: { text: systemInstruction } },
+                system_instruction: { parts: [{ text: systemInstruction }] },
                 contents: chatHistory
             };
 
