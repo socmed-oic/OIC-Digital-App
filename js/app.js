@@ -122,10 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let errorMsg = err.message || "Unknown error";
                 if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-                    errorMsg = "CORS or Network Error.\\n\\nFix: You MUST deploy your Google Apps Script Web App with 'Who has access' set exactly to 'Anyone' (not 'Anyone with Google account'). If you recently updated the code, ensure you deployed it as a 'New Version'.";
+                    errorMsg = "CORS or Network Error.\n\nFix: You MUST deploy your Google Apps Script Web App with 'Who has access' set exactly to 'Anyone' (not 'Anyone with Google account'). If you recently updated the code, ensure you deployed it as a 'New Version'.";
                 }
                 
-                alert("Master Data Sync Failed:\\n\\n" + errorMsg);
+                alert("Master Data Sync Failed:\n\n" + errorMsg);
 
                 if (masterSyncBtn) {
                     masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
