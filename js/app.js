@@ -118,14 +118,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     }, 3000);
                 }
             } catch (err) {
-                console.error(err);
+                console.error("Master Sync Error:", err);
+                
+                let errorMsg = err.message || "Unknown error";
+                if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
+                    errorMsg = "CORS or Network Error.\\n\\nFix: You MUST deploy your Google Apps Script Web App with 'Who has access' set exactly to 'Anyone' (not 'Anyone with Google account'). If you recently updated the code, ensure you deployed it as a 'New Version'.";
+                }
+                
+                alert("Master Data Sync Failed:\\n\\n" + errorMsg);
+
                 if (masterSyncBtn) {
                     masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
                     masterSyncBtn.style.background = 'rgba(254,202,202,0.3)';
                     setTimeout(() => {
                         masterSyncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
                         masterSyncBtn.style.background = '';
-                    }, 3000);
+                    }, 5000);
                 }
             }
         }
