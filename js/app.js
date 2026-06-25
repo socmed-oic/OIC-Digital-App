@@ -378,52 +378,82 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        function formatNumber(num) {
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+            return num.toFixed(1);
+        }
+
         function handleParsedData(data, columns, filename) {
             currentParsedData = data;
             let blankCount = 0;
+            let totalSpend = 0;
+            let totalImpressions = 0;
+            let totalClicks = 0;
+
             data.forEach(row => {
                 columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
+                
+                // Meta CSV/Excel parsing
+                if (row['Amount Spent']) totalSpend += parseFloat(row['Amount Spent']) || 0;
+                if (row['Impressions']) totalImpressions += parseFloat(row['Impressions']) || 0;
+                if (row['Clicks All']) totalClicks += parseFloat(row['Clicks All']) || 0;
+                else if (row['Click Link']) totalClicks += parseFloat(row['Click Link']) || 0; // Fallback
             });
 
             currentDataProfile = {
                 filename: filename, totalRows: data.length, columns: columns, blankCellsFound: blankCount, sampleData: data.slice(0, 5)
             };
 
-            datasetStats.textContent = `${data.length} Rows Loaded`;
-            uploadZone.style.display = 'none';
-            chatInterface.style.display = 'flex';
+            const datasetStats = document.getElementById('dataset-stats');
+            if(datasetStats) datasetStats.textContent = `${data.length} Rows Loaded`;
+            
+            if(uploadZone) uploadZone.style.display = 'none';
+            if(chatInterface) chatInterface.style.display = 'flex';
 
             chatHistory = [];
             addChatMessage('AI', `I've successfully loaded **${filename}**. It contains ${data.length} rows and ${columns.length} columns. I detected ${blankCount} blank cells. How would you like to process this Meta Ads data before syncing to the database?`);
             
-            document.getElementById('kpi-spend').textContent = `Rp ${(data.length * 0.5).toFixed(1)}M`;
-            document.getElementById('kpi-impressions').textContent = `${(data.length * 12.5).toFixed(0)}K`;
-            document.getElementById('kpi-ctr').textContent = `2.4%`;
-            document.getElementById('kpi-roas').textContent = `3.1x`;
+            // Calculate KPIs
+            const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : 0;
+            const avgCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
+
+            const spendEl = document.getElementById('kpi-spend');
+            const impEl = document.getElementById('kpi-impressions');
+            const ctrEl = document.getElementById('kpi-ctr');
+            const cpcEl = document.getElementById('kpi-cpc');
+            
+            if(spendEl) spendEl.textContent = `Rp ${formatNumber(totalSpend)}`;
+            if(impEl) impEl.textContent = `${formatNumber(totalImpressions)}`;
+            if(ctrEl) ctrEl.textContent = `${avgCtr}%`;
+            if(cpcEl) cpcEl.textContent = `Rp ${formatNumber(avgCpc)}`;
+            
             document.querySelectorAll('.trend').forEach(el => el.textContent = 'Previewing Local Data');
         }
 
         function processFile(file) {
-            const ext = file.name.split('.').pop().toLowerCase();
-            if (ext === 'csv') {
-                Papa.parse(file, {
-                    header: true, skipEmptyLines: true,
-                    complete: function(results) { handleParsedData(results.data, results.meta.fields, file.name); }
-                });
-            } else if (ext === 'xls' || ext === 'xlsx') {
-                const reader = new FileReader();
-                reader.onload = function(e) {
+            // Because Meta often exports XLSX files disguised with a .csv extension, 
+            // we will ALWAYS use the robust SheetJS library which can handle both true CSV and true XLSX binary data.
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const json = XLSX.utils.sheet_to_json(worksheet, {defval: ""});
-                    if (json.length > 0) { handleParsedData(json, Object.keys(json[0]), file.name); } else { alert('The Excel file appears to be empty.'); }
-                };
-                reader.readAsArrayBuffer(file);
-            } else {
-                alert('Please upload a CSV or Excel (.xls, .xlsx) file.');
-            }
+                    
+                    if (json.length > 0) { 
+                        handleParsedData(json, Object.keys(json[0]), file.name); 
+                    } else { 
+                        alert('The file appears to be empty.'); 
+                    }
+                } catch(err) {
+                    console.error("Parse Error:", err);
+                    alert("Failed to parse this file. Make sure it's a valid Meta Ads export.");
+                }
+            };
+            reader.readAsArrayBuffer(file);
         }
 
         function addChatMessage(sender, text) {
