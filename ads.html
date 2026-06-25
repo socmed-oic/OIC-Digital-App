@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIC Digital Hub - Meta Ads</title>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- PapaParse for CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- SheetJS for XLS/XLSX -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Flatpickr for Date Range -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" class="view-section active">
+        
+        <!-- Floating Sidebar (Standalone Mode) -->
+        <aside class="floating-sidebar glass-panel">
+            <div class="sidebar-logo">
+                <img src="img/logo.png" alt="OIC Logo">
+            </div>
+            <ul class="nav-links">
+                <li class="active" id="sidebar-active-module">
+                    <i class="fa-solid fa-rocket"></i><span>Meta Ads</span>
+                </li>
+            </ul>
+            <div class="sidebar-bottom">
+                <button id="back-to-hub" class="glass-btn primary" onclick="window.location.href='hub.html'">
+                    <i class="fa-solid fa-arrow-left"></i><span>Exit to Hub</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- Floating Topbar -->
+            <header class="floating-topbar glass-panel">
+                <div class="topbar-left">
+                    <h2 id="current-module-title">Meta Ads & Optimization</h2>
+                </div>
+                <div class="topbar-right">
+                    
+                    <!-- Date Shortcuts -->
+                    <select id="date-shortcuts" class="glass-select" style="margin-right: 12px; height: 100%;">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                        <option value="allTime">All Time</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+
+                    <!-- Functional Date Range Calendar -->
+                    <div class="glass-pill date-picker-container" id="date-picker-btn" style="cursor: pointer;">
+                        <i class="fa-regular fa-calendar" style="color: rgba(255,255,255,0.7);"></i>
+                        <input type="text" id="date-range-picker" class="glass-date-input" placeholder="Select date range..." readonly style="cursor: pointer; width: 190px;">
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-scroll-area">
+                
+                <!-- 1. META ADS & OPTIMIZATION MODULE -->
+                <section id="ads-module" class="module-section active">
+                    
+                    <!-- Meta Ads Hierarchy Filters -->
+                    <div class="glass-card" style="margin-bottom: 24px; display: flex; gap: 16px; align-items: center; padding: 16px 24px;">
+                        <i class="fa-solid fa-filter" style="color: rgba(255,255,255,0.5);"></i>
+                        <span style="font-weight: 500; margin-right: 8px;">Filter by:</span>
+                        
+                        <select class="glass-select">
+                            <option value="all">All Campaigns</option>
+                            <option value="c1">Summer Sale 2026</option>
+                            <option value="c2">Brand Awareness Q3</option>
+                        </select>
+                        
+                        <i class="fa-solid fa-chevron-right" style="color: rgba(255,255,255,0.3); font-size: 0.8rem;"></i>
+                        
+                        <select class="glass-select">
+                            <option value="all">All Ad Sets</option>
+                            <option value="s1">Lookalike 1%</option>
+                            <option value="s2">Retargeting 30d</option>
+                        </select>
+                        
+                        <i class="fa-solid fa-chevron-right" style="color: rgba(255,255,255,0.3); font-size: 0.8rem;"></i>
+                        
+                        <select class="glass-select">
+                            <option value="all">All Ads</option>
+                            <option value="a1">Video - V1</option>
+                            <option value="a2">Carousel - Top Products</option>
+                        </select>
+                        
+                        <button id="pull-master-data-btn" class="glass-btn" style="margin-left: auto; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);">
+                            <i class="fa-solid fa-rotate"></i>
+                            Sync with Master Data
+                        </button>
+                    </div>
+
+                    <div class="spatial-grid">
+                        <!-- KPI Row -->
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Meta Spend</span>
+                                <div class="glass-icon"><i class="fa-solid fa-wallet"></i></div>
+                            </div>
+                            <div class="value" id="kpi-spend">Rp 0</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Impressions</span>
+                                <div class="glass-icon"><i class="fa-solid fa-eye"></i></div>
+                            </div>
+                            <div class="value" id="kpi-impressions">0</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Avg. CTR</span>
+                                <div class="glass-icon"><i class="fa-solid fa-mouse-pointer"></i></div>
+                            </div>
+                            <div class="value" id="kpi-ctr">0.0%</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Avg. ROAS</span>
+                                <div class="glass-icon"><i class="fa-solid fa-bullseye"></i></div>
+                            </div>
+                            <div class="value" id="kpi-roas">0.0x</div>
+                            <div class="trend" style="color: rgba(255,255,255,0.5)">Awaiting data</div>
+                        </div>
+
+                        <!-- Meta Charts -->
+                        <div class="glass-card col-span-3 row-span-2">
+                            <div class="card-header">
+                                <h3>Demographics Performance</h3>
+                                <div class="glass-pill-group">
+                                    <button class="glass-tab active">Age & Gender</button>
+                                </div>
+                            </div>
+                            <div class="chart-wrapper" style="height: 300px;">
+                                <canvas id="demoChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card col-span-1 row-span-2">
+                            <div class="card-header">
+                                <h3>Platform Split</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 250px;">
+                                <canvas id="platformChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card col-span-4 row-span-2">
+                            <div class="card-header">
+                                <h3>Placement Analysis</h3>
+                                <span class="glass-tag">Feed vs Stories vs Reels</span>
+                            </div>
+                            <div class="chart-wrapper" style="height: 250px;">
+                                <canvas id="placementChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- AI DATA PROCESSOR (Integrated into Ads Module) -->
+                        <div class="col-span-4" style="margin-top: 40px; margin-bottom: 16px;">
+                            <h2 style="font-size: 1.5rem; letter-spacing: 0.5px;"><i class="fa-solid fa-brain" style="color: #a78bfa; margin-right: 12px;"></i> AI Data Processor Engine</h2>
+                            <p style="color: rgba(255,255,255,0.7); font-size: 0.95rem; margin-top: 8px;">Upload Meta Ads CSV/XLS exports to clean, analyze, and sync to your Master Spreadsheet.</p>
+                        </div>
+                        
+                        <!-- Configuration Card -->
+                        <div class="glass-card col-span-4" id="ai-config-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-key" style="color: #a78bfa; margin-right: 8px;"></i> Processor Configuration</h3>
+                            </div>
+                            <div class="config-grid">
+                                <div class="sheets-connector">
+                                    <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key (Required for AI Analysis)">
+                                    <button id="save-api-key" class="glass-btn primary">Save Key</button>
+                                    <div id="api-key-status" class="sheets-status disconnected">Missing</div>
+                                </div>
+                                <div class="sheets-connector">
+                                    <input type="text" id="gsheet-sync-url" placeholder="Enter Google Apps Script Webhook URL (For Auto-Sync)">
+                                    <button id="save-sync-url" class="glass-btn primary">Save URL</button>
+                                    <div id="sync-url-status" class="sheets-status disconnected">Missing</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Upload Zone -->
+                        <div class="glass-card col-span-4" id="upload-zone" style="text-align: center; padding: 60px 20px; border: 2px dashed rgba(255,255,255,0.3); transition: all 0.3s; cursor: pointer;">
+                            <i class="fa-solid fa-file-csv" style="font-size: 3rem; color: #a78bfa; margin-bottom: 16px;"></i>
+                            <h3>Upload Meta Ads Export</h3>
+                            <p style="color: rgba(255,255,255,0.7); margin-top: 8px;">Drag & Drop a CSV or Excel (XLS/XLSX) file here</p>
+                            <input type="file" id="file-input" accept=".csv, .xls, .xlsx" style="display: none;">
+                        </div>
+
+                        <!-- Chat Interface -->
+                        <div class="glass-card col-span-4" id="ai-chat-interface" style="display: none; height: 500px; flex-direction: column;">
+                            <div class="card-header" style="margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                                <h3><i class="fa-solid fa-robot" style="color: #a78bfa; margin-right: 8px;"></i> Data Agent</h3>
+                                <div class="glass-pill-group">
+                                    <span class="glass-tag" id="dataset-stats">0 Rows Loaded</span>
+                                    <button id="trigger-sync-btn" class="glass-btn primary" style="padding: 4px 16px; margin-left: 12px; font-size: 0.85rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Sync to Sheet</button>
+                                </div>
+                            </div>
+                            
+                            <!-- Chat Log -->
+                            <div id="chat-log" style="flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 16px;">
+                                <!-- Messages will go here -->
+                            </div>
+
+                            <!-- Chat Input -->
+                            <div class="sheets-connector" style="margin-bottom: 0; margin-top: 16px; padding: 0;">
+                                <input type="text" id="chat-input" placeholder="Ask the AI about your data or give instructions...">
+                                <button id="send-chat" class="glass-btn primary"><i class="fa-solid fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- App Logic -->
+    <script src="js/app.js"></script>
+</body>
+</html>

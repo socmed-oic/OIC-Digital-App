@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIC Digital Hub</title>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- HUB VIEW -->
+    <div id="hub-view" class="view-section active glass-container-center">
+        <div class="hub-wrapper">
+            <div class="hub-header">
+                <h2>Welcome to OIC</h2>
+                <p>Choose a module to get started</p>
+            </div>
+            
+            <div class="hub-grid">
+                <!-- Ads & Optimization -->
+                <div class="glass-card hub-card" onclick="window.location.href='ads.html'" data-icon="fa-rocket" data-title="Meta Ads & AI" style="cursor: pointer;">
+                    <div class="hub-icon-wrapper">
+                        <i class="fa-solid fa-rocket"></i>
+                    </div>
+                    <h3>Meta Ads & AI</h3>
+                    <p>Process, clean, and analyze Meta campaigns using the AI data engine.</p>
+                    <div class="hub-metric">Status: <span style="color: #a7f3d0">Data Engine Ready</span></div>
+                </div>
+
+                <!-- PR & Exposure -->
+                <div class="glass-card hub-card" data-icon="fa-newspaper" data-title="PR & Exposure">
+                    <div class="hub-icon-wrapper">
+                        <i class="fa-regular fa-newspaper"></i>
+                    </div>
+                    <h3>PR & Exposure</h3>
+                    <p>Earned media value, sentiment analysis, and influencer tracking.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">0 Active Trackers</span></div>
+                </div>
+
+                <!-- Content Planning -->
+                <div class="glass-card hub-card" data-icon="fa-pen-ruler" data-title="Content Planning">
+                    <div class="hub-icon-wrapper">
+                        <i class="fa-solid fa-pen-ruler"></i>
+                    </div>
+                    <h3>Content Planning</h3>
+                    <p>Trend radar, strategy mix, and content calendar management.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">0 Scheduled Posts</span></div>
+                </div>
+
+                <!-- Multi-Outlet Report -->
+                <div class="glass-card hub-card" data-icon="fa-store" data-title="Multi-Outlet Report">
+                    <div class="hub-icon-wrapper">
+                        <i class="fa-solid fa-store"></i>
+                    </div>
+                    <h3>Multi-Outlet Report</h3>
+                    <p>Regional performance, outlet rankings, and anomaly detection.</p>
+                    <div class="hub-metric">Status: <span style="color: #fca5a5">No Connected Outlets</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Logic -->
+    <script src="js/app.js"></script>
+</body>
+</html>
