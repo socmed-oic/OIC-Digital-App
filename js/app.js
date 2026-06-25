@@ -307,6 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     keyStatus.className = 'sheets-status disconnected';
                     keyStatus.textContent = 'Testing Key...';
                     
+                    const originalText = saveKeyBtn.innerHTML;
+                    saveKeyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    
                     // Ping Gemini 1.5 Flash to validate key
                     fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${val}`, {
                         method: 'POST',
@@ -318,9 +321,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         localStorage.setItem('gemini_api_key', val);
                         keyStatus.className = 'sheets-status connected';
                         keyStatus.textContent = 'Key Saved & Valid';
+                        
+                        saveKeyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                        saveKeyBtn.style.background = 'rgba(167,243,208,0.3)';
+                        setTimeout(() => {
+                            saveKeyBtn.innerHTML = originalText;
+                            saveKeyBtn.style.background = '';
+                        }, 2000);
                     }).catch(() => {
                         keyStatus.className = 'sheets-status disconnected';
                         keyStatus.textContent = 'Invalid API Key';
+                        
+                        saveKeyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
+                        saveKeyBtn.style.background = 'rgba(254,202,202,0.3)';
+                        setTimeout(() => {
+                            saveKeyBtn.innerHTML = originalText;
+                            saveKeyBtn.style.background = '';
+                        }, 2000);
                     });
                 }
             });
@@ -334,6 +351,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem('gsheet_sync_url', val);
                     syncUrlStatus.className = 'sheets-status connected';
                     syncUrlStatus.textContent = 'Webhook Ready';
+                    
+                    const originalText = saveSyncUrlBtn.innerHTML;
+                    saveSyncUrlBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                    saveSyncUrlBtn.style.background = 'rgba(167,243,208,0.3)';
+                    setTimeout(() => {
+                        saveSyncUrlBtn.innerHTML = originalText;
+                        saveSyncUrlBtn.style.background = '';
+                    }, 2000);
                 }
             });
         }
