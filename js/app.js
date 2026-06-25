@@ -249,7 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const triggerSyncBtn = document.getElementById('trigger-sync-btn');
 
     let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
-    let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || '';
+    let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || 'https://script.google.com/macros/s/AKfycbzPTWHY2h8Dqk2cRCf0BF5ctN9RiuLHj4s9W0XeTVtmnzHMDS-ix_zQlFAagJNdscPJBw/exec';
     let currentParsedData = null; // Holds the full parsed array
     let currentDataProfile = null;
     let chatHistory = [];
