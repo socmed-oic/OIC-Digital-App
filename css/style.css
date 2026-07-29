@@ -379,6 +379,15 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text-secondary);
     white-space: nowrap;
     font-weight: 500;
+    /* These are clickable tabs, so they need to look and feel clickable. */
+    cursor: pointer;
+    user-select: none;
+    transition: var(--transition);
+}
+
+.nav-links li:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
 }
 
 .nav-links li i {
@@ -609,6 +618,22 @@ h1, h2, h3, h4, h5, h6 {
     width: 100%;
 }
 
+/* Shown over a chart when the current filters yield nothing to plot, so an
+   empty axis is never mistaken for a real measurement of zero. */
+.chart-empty-note {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0 24px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+}
+
 /* Configuration Grid */
 .config-grid {
     display: grid;
@@ -730,6 +755,67 @@ span.flatpickr-weekday {
 .flatpickr-monthDropdown-months, .flatpickr-monthDropdown-months option {
     color: #333 !important;
     background: #fff !important;
+}
+
+/* ==========================================================================
+   INTERACTION POLISH
+   ========================================================================== */
+
+/* Buttons mid-request should look busy and reject further clicks. */
+.glass-btn:disabled,
+.glass-btn[disabled] {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
+}
+.glass-btn:disabled:hover {
+    background: var(--glass-bg);
+    transform: none;
+}
+
+/* Keyboard focus was invisible against the glass background. Use :focus-visible
+   so it appears for keyboard users without ringing every mouse click. */
+.glass-btn:focus-visible,
+.glass-select:focus-visible,
+.key:focus-visible,
+.nav-links li:focus-visible,
+.sheets-connector input:focus-visible,
+#upload-zone:focus-visible {
+    outline: 2px solid rgba(255, 255, 255, 0.85);
+    outline-offset: 2px;
+}
+
+/* The scroll area hid its scrollbar entirely, leaving no indication of
+   position on long dashboards. A thin one costs nothing. */
+.content-scroll-area::-webkit-scrollbar {
+    width: 6px;
+}
+.content-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+.content-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+}
+.content-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Long campaign names should not blow out the report table width. */
+#report-table-body td:first-child {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .glass-btn:hover, .hub-card:hover { transform: none; }
 }
 
 /* Responsive */

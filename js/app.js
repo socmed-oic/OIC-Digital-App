@@ -1,14 +1,101 @@
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     // Determine which page we are on based on the elements present
     const loginView = document.getElementById('login-view');
-    const hubView = document.getElementById('hub-view');
     const dashboardView = document.getElementById('dashboard-view');
+
+    // =========================================================================
+    // 0. SHARED HELPERS
+    // =========================================================================
+
+    /** Escape text before it goes anywhere near innerHTML. */
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    /**
+     * Meta exports dates as either an Excel serial number or a display string,
+     * depending on whether the file is a true XLSX or a CSV. Normalise both to a
+     * Date so rows can be compared and sorted, rather than sorted as text.
+     */
+    function parseRowDate(raw) {
+        if (raw === null || raw === undefined || raw === '' || raw === '-') return null;
+
+        if (typeof raw === 'number' || (typeof raw === 'string' && raw.trim() !== '' && !isNaN(raw))) {
+            const serial = Number(raw);
+            // Excel serials below this are almost certainly not dates.
+            if (serial > 20000 && serial < 60000) {
+                return new Date(Math.round((serial - 25569) * 86400 * 1000));
+            }
+        }
+
+        const parsed = new Date(raw);
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const DATE_COLUMNS = ['Ends', 'Reporting Ends', 'Day', 'Date', 'Reporting Starts', 'Starts'];
+
+    function getRowDate(row) {
+        for (const col of DATE_COLUMNS) {
+            if (row[col] !== undefined) {
+                const d = parseRowDate(row[col]);
+                if (d) return d;
+            }
+        }
+        return null;
+    }
+
+    function startOfDay(d) { const c = new Date(d); c.setHours(0, 0, 0, 0); return c; }
+    function endOfDay(d) { const c = new Date(d); c.setHours(23, 59, 59, 999); return c; }
+
+    function formatNumber(num) {
+        const n = Number(num);
+        if (!isFinite(n)) return '0';
+        if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+        if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+        return n.toFixed(1);
+    }
+
+    /** Read a numeric cell, tolerating the several header spellings Meta uses. */
+    function numFrom(row, names) {
+        for (const name of names) {
+            if (row[name] !== undefined && row[name] !== '') {
+                const v = parseFloat(String(row[name]).replace(/[^0-9.\-]/g, ''));
+                if (!isNaN(v)) return v;
+            }
+        }
+        return 0;
+    }
+
+    const COL = {
+        campaign: ['Nama Campaign', 'Campaign name', 'Campaign Name'],
+        adset: ['Nama Ad Set', 'Ad set name', 'Ad Set Name'],
+        ad: ['Nama Iklan', 'Ad name', 'Ad Name'],
+        spend: ['Amount Spent', 'Amount spent (IDR)', 'Amount spent'],
+        impressions: ['Impressions'],
+        reach: ['Reach'],
+        clicks: ['Clicks All', 'Clicks (all)', 'Click Link', 'Link clicks'],
+    };
+
+    function strFrom(row, names) {
+        for (const name of names) {
+            if (row[name] !== undefined && row[name] !== '') return String(row[name]);
+        }
+        return '';
+    }
 
     // =========================================================================
     // 1. PIN LOGIN SYSTEM (Only runs on index.html)
     // =========================================================================
     if (loginView) {
+        // NOTE: this is a client-side speed bump, not authentication. Anyone can
+        // read this value in devtools or in the public repo. Do not put anything
+        // genuinely sensitive behind it.
         const CORRECT_PIN = '1234';
         let currentPin = '';
         const pinDots = document.querySelectorAll('.pin-dot');
@@ -16,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const clearBtn = document.getElementById('pin-clear');
         const enterBtn = document.getElementById('pin-enter');
         const errorMsg = document.getElementById('pin-error');
-        
+
         function updatePinDisplay() {
             pinDots.forEach((dot, index) => {
                 if (index < currentPin.length) {
@@ -26,7 +113,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 dot.classList.remove('error');
             });
-            if(errorMsg) errorMsg.textContent = '';
+            if (errorMsg) errorMsg.textContent = '';
+        }
+
+        function submitPin() {
+            if (currentPin.length !== 4) return;
+            if (currentPin === CORRECT_PIN) {
+                window.location.href = 'hub.html';
+            } else {
+                if (errorMsg) errorMsg.textContent = 'Incorrect PIN';
+                pinDots.forEach(dot => dot.classList.add('error'));
+                setTimeout(() => {
+                    currentPin = '';
+                    updatePinDisplay();
+                }, 1000);
+            }
         }
 
         numberKeys.forEach(key => {
@@ -34,11 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentPin.length < 4) {
                     currentPin += key.textContent;
                     updatePinDisplay();
+                    if (currentPin.length === 4) setTimeout(submitPin, 150);
                 }
             });
         });
 
-        if(clearBtn) {
+        if (clearBtn) {
             clearBtn.addEventListener('click', () => {
                 if (currentPin.length > 0) {
                     currentPin = currentPin.slice(0, -1);
@@ -47,29 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        if(enterBtn) {
-            enterBtn.addEventListener('click', () => {
-                if (currentPin.length === 4) {
-                    if (currentPin === CORRECT_PIN) {
-                        window.location.href = 'hub.html';
-                    } else {
-                        if(errorMsg) errorMsg.textContent = 'Incorrect PIN';
-                        pinDots.forEach(dot => dot.classList.add('error'));
-                        setTimeout(() => {
-                            currentPin = '';
-                            updatePinDisplay();
-                        }, 1000);
-                    }
-                }
-            });
-        }
+        if (enterBtn) enterBtn.addEventListener('click', submitPin);
 
-        // Keyboard support for PIN
         document.addEventListener('keydown', (e) => {
             if (e.key >= '0' && e.key <= '9') {
                 if (currentPin.length < 4) {
                     currentPin += e.key;
                     updatePinDisplay();
+                    if (currentPin.length === 4) setTimeout(submitPin, 150);
                 }
             } else if (e.key === 'Backspace') {
                 if (currentPin.length > 0) {
@@ -77,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     updatePinDisplay();
                 }
             } else if (e.key === 'Enter') {
-                if(enterBtn) enterBtn.click();
+                submitPin();
             }
         });
     }
@@ -87,189 +174,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     if (dashboardView) {
 
-        // --- AUTO-SYNC GET LOGIC ---
-        const masterSyncBtn = document.getElementById('pull-master-data-btn');
+        // ---------------------------------------------------------------------
+        // STATE — declared before anything reads it. pullMasterData() used to run
+        // above these declarations and threw a temporal-dead-zone ReferenceError
+        // on every page load, which silently disabled auto-sync.
+        // ---------------------------------------------------------------------
 
-        async function pullMasterData() {
-            if (!gsheetSyncUrl) return;
-            if (masterSyncBtn) {
-                masterSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
-                masterSyncBtn.style.background = 'rgba(255,255,255,0.2)';
-            }
-            
-            try {
-                // Simple GET request follows 302 redirect and reads JSON
-                const res = await fetch(gsheetSyncUrl);
-                const data = await res.json();
-                
-                if (data && data.length > 0) {
-                    // Re-use our parsed data function to update charts/KPIs
-                    handleParsedData(data, Object.keys(data[0]), 'Master_Spreadsheet');
-                }
-                
-                if (masterSyncBtn) {
-                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced with Master';
-                    masterSyncBtn.style.background = 'rgba(167,243,208,0.3)';
-                    masterSyncBtn.style.borderColor = 'rgba(167,243,208,0.5)';
-                    setTimeout(() => {
-                        masterSyncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
-                        masterSyncBtn.style.background = '';
-                        masterSyncBtn.style.borderColor = '';
-                    }, 3000);
-                }
-            } catch (err) {
-                console.error("Master Sync Error:", err);
-                
-                let errorMsg = err.message || "Unknown error";
-                if (errorMsg.includes("Failed to fetch") || errorMsg.includes("NetworkError")) {
-                    errorMsg = "CORS or Network Error.\n\nFix: You MUST deploy your Google Apps Script Web App with 'Who has access' set exactly to 'Anyone' (not 'Anyone with Google account'). If you recently updated the code, ensure you deployed it as a 'New Version'.";
-                }
-                
-                alert("Master Data Sync Failed:\n\n" + errorMsg);
+        // Verify this model name against the current Gemini API model list; model
+        // ids are retired periodically and a stale id fails every request.
+        const GEMINI_MODEL = 'gemini-2.0-flash';
+        const GEMINI_URL = m => `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(m)}`;
 
-                if (masterSyncBtn) {
-                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
-                    masterSyncBtn.style.background = 'rgba(254,202,202,0.3)';
-                    setTimeout(() => {
-                        masterSyncBtn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
-                        masterSyncBtn.style.background = '';
-                    }, 5000);
-                }
-            }
-        }
+        let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
+        // No default webhook: the previous hardcoded Apps Script URL let anyone
+        // with the public repo POST arbitrary rows into the master spreadsheet.
+        let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || '';
+        let currentParsedData = null;
+        let currentDataProfile = null;
+        let chatHistory = [];
+        let activeRange = null; // {start: Date, end: Date} | null
 
-        // Fire on load
-        pullMasterData();
-
-        // Fire on button click
-        if (masterSyncBtn) {
-            masterSyncBtn.addEventListener('click', pullMasterData);
-        }
-
-        // --- DATE PICKER & SHORTCUTS ---
-        const datePickerEl = document.getElementById('date-range-picker');
-        const shortcutsEl = document.getElementById('date-shortcuts');
-        let fpInstance = null;
-
-        if (datePickerEl) {
-            fpInstance = flatpickr("#date-range-picker", {
-                mode: "range",
-                dateFormat: "d M Y",
-                position: "auto right",
-                maxDate: "today", // Cannot select dates beyond today
-                defaultDate: [new Date(new Date().setDate(new Date().getDate() - 7)), new Date()],
-                onChange: function(selectedDates, dateStr, instance) {
-                    // If user manually picks dates, reset shortcut to custom
-                    if (shortcutsEl && selectedDates.length === 2) {
-                        shortcutsEl.value = 'custom';
-                    }
-                }
-            });
-        }
-
-        if (shortcutsEl && fpInstance) {
-            shortcutsEl.addEventListener('change', (e) => {
-                const val = e.target.value;
-                const today = new Date();
-                let start = new Date();
-                
-                if (val === '7') {
-                    start.setDate(today.getDate() - 7);
-                    fpInstance.setDate([start, today]);
-                } else if (val === '30') {
-                    start.setDate(today.getDate() - 30);
-                    fpInstance.setDate([start, today]);
-                } else if (val === 'thisMonth') {
-                    start = new Date(today.getFullYear(), today.getMonth(), 1);
-                    fpInstance.setDate([start, today]);
-                } else if (val === 'lastMonth') {
-                    start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    const end = new Date(today.getFullYear(), today.getMonth(), 0);
-                    fpInstance.setDate([start, end]);
-                } else if (val === 'allTime') {
-                    start = new Date('2024-01-01'); // Arbitrary start date for project
-                    fpInstance.setDate([start, today]);
-                } else if (val === 'custom') {
-                    fpInstance.open();
-                }
-            });
-        }
-
-        // --- CHART CONFIGURATIONS ---
-        const GLASS_COLORS = {
-            white: '#ffffff',
-            white70: 'rgba(255, 255, 255, 0.7)',
-            white30: 'rgba(255, 255, 255, 0.3)',
-            white10: 'rgba(255, 255, 255, 0.1)',
-            accentRed: '#fca5a5',
-            accentGreen: '#86efac',
-            accentGold: '#fde047',
-            accentPurple: '#a78bfa'
-        };
-
-        Chart.defaults.color = GLASS_COLORS.white70;
-        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-        Chart.defaults.font.size = 12;
-        Chart.defaults.plugins.legend.labels.usePointStyle = true;
-        Chart.defaults.plugins.legend.labels.boxWidth = 8;
-        
-        const glassScales = {
-            x: { grid: { display: false }, border: { display: false } },
-            y: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true }
-        };
-
-        function tryCreateChart(id, config) {
-            const ctx = document.getElementById(id);
-            if (ctx) return new Chart(ctx, config);
-            return null;
-        }
-
-        tryCreateChart('demoChart', {
-            type: 'bar',
-            data: {
-                labels: ['18-24', '25-34', '35-44', '45-54', '55-64', '65+'],
-                datasets: [
-                    { label: 'Female', data: [0, 0, 0, 0, 0, 0], backgroundColor: GLASS_COLORS.white, borderRadius: 20, barThickness: 12 },
-                    { label: 'Male', data: [0, 0, 0, 0, 0, 0], backgroundColor: GLASS_COLORS.white30, borderRadius: 20, barThickness: 12 }
-                ]
-            },
-            options: { responsive: true, maintainAspectRatio: false, scales: glassScales, plugins: { legend: { position: 'top' } } }
-        });
-
-        tryCreateChart('platformChart', {
-            type: 'doughnut',
-            data: {
-                labels: ['Instagram', 'Facebook', 'Audience Network', 'Messenger'],
-                datasets: [{
-                    data: [0, 0, 0, 0],
-                    backgroundColor: [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30, GLASS_COLORS.white10],
-                    borderWidth: 0, cutout: '80%'
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-
-        tryCreateChart('placementChart', {
-            type: 'bar',
-            data: {
-                labels: ['Instagram Stories', 'Facebook Feed', 'Instagram Reels', 'Instagram Feed', 'FB Video Feeds'],
-                datasets: [{ label: 'ROAS', data: [0, 0, 0, 0, 0], backgroundColor: GLASS_COLORS.white70, borderRadius: 20, barThickness: 16 }]
-            },
-            options: {
-                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-                scales: {
-                    x: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true },
-                    y: { grid: { display: false }, border: { display: false } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-
-        // --- AI DATA PROCESSOR ---
         const apiKeyInput = document.getElementById('gemini-api-key');
         const saveKeyBtn = document.getElementById('save-api-key');
         const keyStatus = document.getElementById('api-key-status');
-        
+
         const syncUrlInput = document.getElementById('gsheet-sync-url');
         const saveSyncUrlBtn = document.getElementById('save-sync-url');
         const syncUrlStatus = document.getElementById('sync-url-status');
@@ -280,14 +208,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const chatLog = document.getElementById('chat-log');
         const chatInput = document.getElementById('chat-input');
         const sendChatBtn = document.getElementById('send-chat');
-        const datasetStats = document.getElementById('dataset-stats');
         const triggerSyncBtn = document.getElementById('trigger-sync-btn');
+        const masterSyncBtn = document.getElementById('pull-master-data-btn');
 
-        let geminiApiKey = localStorage.getItem('gemini_api_key') || '';
-        let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || 'https://script.google.com/macros/s/AKfycbzPTWHY2h8Dqk2cRCf0BF5ctN9RiuLHj4s9W0XeTVtmnzHMDS-ix_zQlFAagJNdscPJBw/exec';
-        let currentParsedData = null;
-        let currentDataProfile = null;
-        let chatHistory = [];
+        const campaignSelect = document.getElementById('filter-campaign');
+        const adsetSelect = document.getElementById('filter-adset');
+        const adSelect = document.getElementById('filter-ad');
 
         if (geminiApiKey && apiKeyInput) {
             apiKeyInput.value = geminiApiKey;
@@ -300,222 +226,459 @@ document.addEventListener('DOMContentLoaded', () => {
             syncUrlStatus.textContent = 'Webhook Ready';
         }
 
-        if (saveKeyBtn) {
-            saveKeyBtn.addEventListener('click', () => {
-                const val = apiKeyInput.value.trim();
-                if (val) {
-                    keyStatus.className = 'sheets-status disconnected';
-                    keyStatus.textContent = 'Testing Key...';
-                    
-                    const originalText = saveKeyBtn.innerHTML;
-                    saveKeyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                    
-                    // Ping Gemini 1.5 Flash to validate key
-                    fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${val}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: "ping" }] }] })
-                    }).then(res => {
-                        if(!res.ok) throw new Error();
-                        geminiApiKey = val;
-                        localStorage.setItem('gemini_api_key', val);
-                        keyStatus.className = 'sheets-status connected';
-                        keyStatus.textContent = 'Key Saved & Valid';
-                        
-                        saveKeyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-                        saveKeyBtn.style.background = 'rgba(167,243,208,0.3)';
-                        setTimeout(() => {
-                            saveKeyBtn.innerHTML = originalText;
-                            saveKeyBtn.style.background = '';
-                        }, 2000);
-                    }).catch(() => {
-                        keyStatus.className = 'sheets-status disconnected';
-                        keyStatus.textContent = 'Invalid API Key';
-                        
-                        saveKeyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
-                        saveKeyBtn.style.background = 'rgba(254,202,202,0.3)';
-                        setTimeout(() => {
-                            saveKeyBtn.innerHTML = originalText;
-                            saveKeyBtn.style.background = '';
-                        }, 2000);
-                    });
+        /** Restore a button to its resting label, whatever happened. */
+        function resetBtn(btn, html) {
+            if (!btn) return;
+            btn.innerHTML = html;
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            btn.disabled = false;
+        }
+
+        // ---------------------------------------------------------------------
+        // MASTER DATA SYNC (GET)
+        // ---------------------------------------------------------------------
+        const MASTER_BTN_IDLE = '<i class="fa-solid fa-rotate"></i> Sync with Master Data';
+
+        async function pullMasterData(isManual) {
+            if (!gsheetSyncUrl) {
+                if (isManual) {
+                    alert('No webhook URL set.\n\nPaste your Google Apps Script Web App URL into "Processor Configuration" below and click Save URL first.');
                 }
-            });
-        }
-
-        if (saveSyncUrlBtn) {
-            saveSyncUrlBtn.addEventListener('click', () => {
-                const val = syncUrlInput.value.trim();
-                if (val) {
-                    gsheetSyncUrl = val;
-                    localStorage.setItem('gsheet_sync_url', val);
-                    syncUrlStatus.className = 'sheets-status connected';
-                    syncUrlStatus.textContent = 'Webhook Ready';
-                    
-                    const originalText = saveSyncUrlBtn.innerHTML;
-                    saveSyncUrlBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-                    saveSyncUrlBtn.style.background = 'rgba(167,243,208,0.3)';
-                    setTimeout(() => {
-                        saveSyncUrlBtn.innerHTML = originalText;
-                        saveSyncUrlBtn.style.background = '';
-                    }, 2000);
-                }
-            });
-        }
-
-        if (uploadZone) {
-            uploadZone.addEventListener('click', () => fileInput.click());
-            uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'rgba(255,255,255,0.8)'; });
-            uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'rgba(255,255,255,0.3)'; });
-            uploadZone.addEventListener('drop', (e) => {
-                e.preventDefault();
-                uploadZone.style.borderColor = 'rgba(255,255,255,0.3)';
-                if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
-            });
-            
-            fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) processFile(e.target.files[0]);
-            });
-        }
-
-        function formatNumber(num) {
-            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-            return num.toFixed(1);
-        }
-
-        let globalChartInstance = null;
-        function renderDayToDayChart(filteredData) {
-            const ctx = document.getElementById('day-to-day-chart');
-            if (!ctx) return;
-            
-            // Group data by date
-            const dateMap = {};
-            filteredData.forEach(row => {
-                let rawDate = row['Ends'] || row['Reporting Ends'] || '';
-                if (!rawDate || rawDate === '-') return;
-                
-                // Convert Excel serial date
-                let dateStr = rawDate;
-                if (!isNaN(rawDate)) {
-                    const dateObj = new Date(Math.round((rawDate - 25569) * 86400 * 1000));
-                    dateStr = dateObj.toLocaleDateString();
-                }
-
-                if (!dateMap[dateStr]) dateMap[dateStr] = { reach: 0, clicks: 0, impressions: 0 };
-                dateMap[dateStr].reach += parseFloat(row['Reach']) || 0;
-                dateMap[dateStr].impressions += parseFloat(row['Impressions']) || 0;
-                dateMap[dateStr].clicks += parseFloat(row['Clicks All'] || row['Click Link']) || 0;
-            });
-
-            const labels = Object.keys(dateMap).sort(); // Sort chronologically (rough)
-            const reachData = labels.map(l => dateMap[l].reach);
-            const clicksData = labels.map(l => dateMap[l].clicks);
-            const impData = labels.map(l => dateMap[l].impressions);
-
-            if (globalChartInstance) {
-                globalChartInstance.destroy();
+                return;
             }
 
-            globalChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { label: 'Reach', data: reachData, borderColor: '#a78bfa', tension: 0.4 },
-                        { label: 'Clicks', data: clicksData, borderColor: '#34d399', tension: 0.4 },
-                        { label: 'Impressions', data: impData, borderColor: '#fbbf24', tension: 0.4 }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: 'white' } } },
-                    scales: {
-                        x: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-                        y: { ticks: { color: 'rgba(255,255,255,0.7)' }, grid: { color: 'rgba(255,255,255,0.1)' } }
+            if (masterSyncBtn) {
+                masterSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+                masterSyncBtn.style.background = 'rgba(255,255,255,0.2)';
+                masterSyncBtn.disabled = true;
+            }
+
+            try {
+                const res = await fetch(gsheetSyncUrl);
+                if (!res.ok) throw new Error(`Server responded ${res.status}`);
+
+                const data = await res.json();
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error('The webhook returned no rows. Check the sheet is not empty.');
+                }
+
+                handleParsedData(data, Object.keys(data[0]), 'Master_Spreadsheet');
+
+                if (masterSyncBtn) {
+                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced with Master';
+                    masterSyncBtn.style.background = 'rgba(167,243,208,0.3)';
+                    masterSyncBtn.style.borderColor = 'rgba(167,243,208,0.5)';
+                    masterSyncBtn.disabled = false;
+                    setTimeout(() => resetBtn(masterSyncBtn, MASTER_BTN_IDLE), 3000);
+                }
+            } catch (err) {
+                console.error('Master Sync Error:', err);
+
+                let message = err.message || 'Unknown error';
+                if (message.includes('Failed to fetch') || message.includes('NetworkError')) {
+                    message = "CORS or Network Error.\n\nFix: deploy your Google Apps Script Web App with 'Who has access' set to 'Anyone' (not 'Anyone with Google account'). If you changed the script, redeploy it as a New Version.";
+                }
+
+                // Only interrupt the user when they asked for this. The automatic
+                // load-time sync reports failure on the button instead of via alert.
+                if (isManual) alert('Master Data Sync Failed:\n\n' + message);
+
+                if (masterSyncBtn) {
+                    masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
+                    masterSyncBtn.style.background = 'rgba(254,202,202,0.3)';
+                    masterSyncBtn.disabled = false;
+                    masterSyncBtn.title = message;
+                    setTimeout(() => resetBtn(masterSyncBtn, MASTER_BTN_IDLE), 5000);
+                }
+            }
+        }
+
+        if (masterSyncBtn) masterSyncBtn.addEventListener('click', () => pullMasterData(true));
+
+        // ---------------------------------------------------------------------
+        // DATE PICKER & SHORTCUTS
+        // ---------------------------------------------------------------------
+        const datePickerEl = document.getElementById('date-range-picker');
+        const shortcutsEl = document.getElementById('date-shortcuts');
+        let fpInstance = null;
+
+        function applyRange(dates) {
+            if (dates && dates.length === 2) {
+                activeRange = { start: startOfDay(dates[0]), end: endOfDay(dates[1]) };
+            } else {
+                activeRange = null;
+            }
+            updateReportDateLabel();
+            filterDataAndRender();
+        }
+
+        function updateReportDateLabel() {
+            const el = document.getElementById('report-date-range');
+            if (!el) return;
+            if (!activeRange) {
+                el.textContent = 'All dates';
+            } else {
+                const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                el.textContent = `${fmt(activeRange.start)} - ${fmt(activeRange.end)}`;
+            }
+        }
+
+        if (datePickerEl && typeof flatpickr !== 'undefined') {
+            // No defaultDate: start unrestricted so an uploaded export is fully
+            // visible, and let the user narrow from there.
+            fpInstance = flatpickr('#date-range-picker', {
+                mode: 'range',
+                dateFormat: 'd M Y',
+                position: 'auto right',
+                maxDate: 'today',
+                onChange: function (selectedDates) {
+                    if (selectedDates.length === 2) {
+                        if (shortcutsEl) shortcutsEl.value = 'custom';
+                        applyRange(selectedDates);
                     }
                 }
             });
         }
 
-        function filterDataAndRender() {
-            if (!currentParsedData) return;
-            const campaignFilter = document.getElementById('filter-campaign')?.value || 'all';
-            
-            let filtered = currentParsedData;
-            if (campaignFilter !== 'all') {
-                filtered = filtered.filter(row => row['Nama Campaign'] === campaignFilter || row['Campaign name'] === campaignFilter);
+        if (shortcutsEl && fpInstance) {
+            shortcutsEl.addEventListener('change', (e) => {
+                const val = e.target.value;
+                const today = new Date();
+                let start = new Date();
+
+                if (val === '7') {
+                    start.setDate(today.getDate() - 7);
+                    fpInstance.setDate([start, today], true);
+                } else if (val === '30') {
+                    start.setDate(today.getDate() - 30);
+                    fpInstance.setDate([start, today], true);
+                } else if (val === 'thisMonth') {
+                    start = new Date(today.getFullYear(), today.getMonth(), 1);
+                    fpInstance.setDate([start, today], true);
+                } else if (val === 'lastMonth') {
+                    start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+                    fpInstance.setDate([start, end], true);
+                } else if (val === 'allTime') {
+                    // Clear the range entirely rather than guessing a start date,
+                    // so rows older than any hardcoded floor are still counted.
+                    fpInstance.clear();
+                    applyRange(null);
+                } else if (val === 'custom') {
+                    fpInstance.open();
+                }
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // CHART SETUP
+        // ---------------------------------------------------------------------
+        const GLASS_COLORS = {
+            white: '#ffffff',
+            white70: 'rgba(255, 255, 255, 0.7)',
+            white30: 'rgba(255, 255, 255, 0.3)',
+            white10: 'rgba(255, 255, 255, 0.1)',
+            purple: '#a78bfa',
+            green: '#34d399',
+            amber: '#fbbf24'
+        };
+
+        Chart.defaults.color = GLASS_COLORS.white70;
+        Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+        Chart.defaults.font.size = 12;
+        Chart.defaults.plugins.legend.labels.usePointStyle = true;
+        Chart.defaults.plugins.legend.labels.boxWidth = 8;
+
+        const glassScales = {
+            x: { grid: { display: false }, border: { display: false } },
+            y: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true }
+        };
+
+        const charts = {};
+
+        function makeChart(id, config) {
+            const ctx = document.getElementById(id);
+            if (!ctx) return null;
+            if (charts[id]) charts[id].destroy();
+            charts[id] = new Chart(ctx, config);
+            return charts[id];
+        }
+
+        /** Show a "no data" note over a chart card instead of an empty axis. */
+        function setChartEmpty(canvasId, isEmpty, message) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas || !canvas.parentElement) return;
+            const wrapper = canvas.parentElement;
+            let note = wrapper.querySelector('.chart-empty-note');
+
+            if (isEmpty) {
+                if (!note) {
+                    note = document.createElement('div');
+                    note.className = 'chart-empty-note';
+                    wrapper.appendChild(note);
+                }
+                note.textContent = message || 'No data for this selection';
+                canvas.style.opacity = '0.15';
+            } else {
+                if (note) note.remove();
+                canvas.style.opacity = '1';
             }
+        }
 
-            let totalSpend = 0;
-            let totalImpressions = 0;
-            let totalClicks = 0;
+        function renderDayToDayChart(rows) {
+            const canvas = document.getElementById('day-to-day-chart');
+            if (!canvas) return;
 
-            filtered.forEach(row => {
-                if (row['Amount Spent']) totalSpend += parseFloat(row['Amount Spent']) || 0;
-                if (row['Impressions']) totalImpressions += parseFloat(row['Impressions']) || 0;
-                if (row['Clicks All']) totalClicks += parseFloat(row['Clicks All']) || 0;
-                else if (row['Click Link']) totalClicks += parseFloat(row['Click Link']) || 0;
+            // Bucket by day, keyed on a sortable timestamp rather than a locale
+            // string — the old code sorted "7/29/2026" style keys as text, which
+            // put October before July.
+            const buckets = new Map();
+            rows.forEach(row => {
+                const d = getRowDate(row);
+                if (!d) return;
+                const key = startOfDay(d).getTime();
+                if (!buckets.has(key)) buckets.set(key, { reach: 0, clicks: 0, impressions: 0 });
+                const b = buckets.get(key);
+                b.reach += numFrom(row, COL.reach);
+                b.impressions += numFrom(row, COL.impressions);
+                b.clicks += numFrom(row, COL.clicks);
             });
 
-            const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : 0;
+            const keys = [...buckets.keys()].sort((a, b) => a - b);
+            setChartEmpty('day-to-day-chart', keys.length === 0, 'No dated rows in this range');
+
+            const labels = keys.map(k => new Date(k).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }));
+
+            makeChart('day-to-day-chart', {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Reach', data: keys.map(k => buckets.get(k).reach), borderColor: GLASS_COLORS.purple, tension: 0.4 },
+                        { label: 'Clicks', data: keys.map(k => buckets.get(k).clicks), borderColor: GLASS_COLORS.green, tension: 0.4 },
+                        { label: 'Impressions', data: keys.map(k => buckets.get(k).impressions), borderColor: GLASS_COLORS.amber, tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: 'white' } } },
+                    scales: glassScales
+                }
+            });
+        }
+
+        /**
+         * Breakdown charts only have real data when the export includes the
+         * matching breakdown column. When it does not, say so rather than
+         * rendering a chart full of zeroes that looks like a measurement.
+         */
+        function renderBreakdownChart(canvasId, rows, keyNames, valueNames, type, emptyMessage) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const totals = new Map();
+            rows.forEach(row => {
+                const key = strFrom(row, keyNames);
+                if (!key) return;
+                totals.set(key, (totals.get(key) || 0) + numFrom(row, valueNames));
+            });
+
+            const entries = [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+            setChartEmpty(canvasId, entries.length === 0, emptyMessage || `Export has no ${keyNames[0]} column`);
+
+            if (entries.length === 0) {
+                makeChart(canvasId, {
+                    type,
+                    data: { labels: [], datasets: [{ data: [] }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                });
+                return;
+            }
+
+            const palette = [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30, GLASS_COLORS.white10, GLASS_COLORS.purple, GLASS_COLORS.green];
+
+            makeChart(canvasId, {
+                type,
+                data: {
+                    labels: entries.map(e => e[0]),
+                    datasets: [{
+                        label: valueNames[0],
+                        data: entries.map(e => e[1]),
+                        backgroundColor: type === 'doughnut' ? palette : GLASS_COLORS.white70,
+                        borderWidth: 0,
+                        borderRadius: type === 'doughnut' ? 0 : 20,
+                        barThickness: 16,
+                        cutout: type === 'doughnut' ? '80%' : undefined
+                    }]
+                },
+                options: {
+                    indexAxis: type === 'bar' ? 'y' : 'x',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: type === 'doughnut' ? {} : {
+                        x: { grid: { color: GLASS_COLORS.white10 }, border: { display: false }, beginAtZero: true },
+                        y: { grid: { display: false }, border: { display: false } }
+                    },
+                    plugins: { legend: { display: type === 'doughnut' } }
+                }
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // FILTERING & RENDERING
+        // ---------------------------------------------------------------------
+
+        /** Repopulate a select, preserving the current choice when still valid. */
+        function fillSelect(select, values, allLabel) {
+            if (!select) return;
+            const previous = select.value;
+            select.innerHTML = '';
+            const optAll = document.createElement('option');
+            optAll.value = 'all';
+            optAll.textContent = allLabel;
+            select.appendChild(optAll);
+            values.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                select.appendChild(opt);
+            });
+            select.value = values.includes(previous) ? previous : 'all';
+        }
+
+        function getFilteredRows() {
+            if (!currentParsedData) return [];
+            let rows = currentParsedData;
+
+            if (activeRange) {
+                rows = rows.filter(row => {
+                    const d = getRowDate(row);
+                    // Undated rows are kept: Meta lifetime exports have no date
+                    // column at all, and dropping them would zero the dashboard.
+                    if (!d) return true;
+                    return d >= activeRange.start && d <= activeRange.end;
+                });
+            }
+
+            const campaign = campaignSelect?.value || 'all';
+            const adset = adsetSelect?.value || 'all';
+            const ad = adSelect?.value || 'all';
+
+            if (campaign !== 'all') rows = rows.filter(r => strFrom(r, COL.campaign) === campaign);
+            if (adset !== 'all') rows = rows.filter(r => strFrom(r, COL.adset) === adset);
+            if (ad !== 'all') rows = rows.filter(r => strFrom(r, COL.ad) === ad);
+
+            return rows;
+        }
+
+        function filterDataAndRender() {
+            if (!currentParsedData) return;
+
+            // Cascade the hierarchy: ad sets shown depend on the chosen campaign.
+            const campaign = campaignSelect?.value || 'all';
+            const inCampaign = campaign === 'all'
+                ? currentParsedData
+                : currentParsedData.filter(r => strFrom(r, COL.campaign) === campaign);
+
+            fillSelect(adsetSelect, [...new Set(inCampaign.map(r => strFrom(r, COL.adset)).filter(Boolean))], 'All Ad Sets');
+
+            const adset = adsetSelect?.value || 'all';
+            const inAdset = adset === 'all'
+                ? inCampaign
+                : inCampaign.filter(r => strFrom(r, COL.adset) === adset);
+
+            fillSelect(adSelect, [...new Set(inAdset.map(r => strFrom(r, COL.ad)).filter(Boolean))], 'All Ads');
+
+            const filtered = getFilteredRows();
+
+            let totalSpend = 0, totalImpressions = 0, totalClicks = 0;
+            filtered.forEach(row => {
+                totalSpend += numFrom(row, COL.spend);
+                totalImpressions += numFrom(row, COL.impressions);
+                totalClicks += numFrom(row, COL.clicks);
+            });
+
+            const avgCtr = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : '0.00';
             const avgCpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
 
-            const spendEl = document.getElementById('kpi-spend');
-            const impEl = document.getElementById('kpi-impressions');
-            const ctrEl = document.getElementById('kpi-ctr');
-            const cpcEl = document.getElementById('kpi-cpc');
-            
-            if(spendEl) spendEl.textContent = `Rp ${formatNumber(totalSpend)}`;
-            if(impEl) impEl.textContent = `${formatNumber(totalImpressions)}`;
-            if(ctrEl) ctrEl.textContent = `${avgCtr}%`;
-            if(cpcEl) cpcEl.textContent = `Rp ${formatNumber(avgCpc)}`;
-            
-            document.querySelectorAll('.trend').forEach(el => el.textContent = 'Previewing Local Data');
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+            set('kpi-spend', `Rp ${formatNumber(totalSpend)}`);
+            set('kpi-impressions', formatNumber(totalImpressions));
+            set('kpi-ctr', `${avgCtr}%`);
+            set('kpi-cpc', `Rp ${formatNumber(avgCpc)}`);
+
+            const rowNote = `${filtered.length} of ${currentParsedData.length} rows`;
+            document.querySelectorAll('#ads-module .trend').forEach(el => {
+                el.textContent = rowNote;
+                el.style.color = 'rgba(255,255,255,0.5)';
+            });
 
             renderDayToDayChart(filtered);
+            renderBreakdownChart('platformChart', filtered, ['Platform', 'Publisher Platform', 'Platform Ad'], COL.impressions, 'doughnut');
+            renderBreakdownChart('placementChart', filtered, ['Placement', 'Platform Position', 'Penempatan'], COL.impressions, 'bar');
+            renderBreakdownChart('demoChart', filtered, ['Age', 'Usia', 'Gender'], COL.impressions, 'bar');
 
-            // Populate Report Module
-            const reportSpend = document.getElementById('report-spend');
-            const reportImp = document.getElementById('report-imp');
-            const reportClicks = document.getElementById('report-clicks');
-            const reportCpc = document.getElementById('report-cpc');
-            
-            if(reportSpend) reportSpend.textContent = `Rp ${formatNumber(totalSpend)}`;
-            if(reportImp) reportImp.textContent = `${formatNumber(totalImpressions)}`;
-            if(reportClicks) reportClicks.textContent = `${formatNumber(totalClicks)}`;
-            if(reportCpc) reportCpc.textContent = `Rp ${formatNumber(avgCpc)}`;
+            set('report-spend', `Rp ${formatNumber(totalSpend)}`);
+            set('report-imp', formatNumber(totalImpressions));
+            set('report-clicks', formatNumber(totalClicks));
+            set('report-cpc', `Rp ${formatNumber(avgCpc)}`);
 
             const reportTableBody = document.getElementById('report-table-body');
             if (reportTableBody) {
                 reportTableBody.innerHTML = '';
-                filtered.forEach(row => {
-                    const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
-                    
-                    const cName = row['Nama Campaign'] || row['Campaign name'] || 'Unknown';
-                    const sSpent = parseFloat(row['Amount Spent']) || 0;
-                    const sImp = parseFloat(row['Impressions']) || 0;
-                    const sClicks = parseFloat(row['Clicks All'] || row['Click Link']) || 0;
-                    const sCpc = sClicks > 0 ? (sSpent / sClicks).toFixed(1) : 0;
 
-                    tr.innerHTML = `
-                        <td style="padding: 12px 8px;">${cName}</td>
-                        <td style="padding: 12px 8px;">Rp ${formatNumber(sSpent)}</td>
-                        <td style="padding: 12px 8px;">${formatNumber(sImp)}</td>
-                        <td style="padding: 12px 8px;">${formatNumber(sClicks)}</td>
-                        <td style="padding: 12px 8px;">Rp ${formatNumber(parseFloat(sCpc))}</td>
-                    `;
+                if (filtered.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 5;
+                    td.style.cssText = 'padding:16px;text-align:center;color:rgba(255,255,255,0.5);';
+                    td.textContent = 'No rows match the current filters.';
+                    tr.appendChild(td);
                     reportTableBody.appendChild(tr);
-                });
+                } else {
+                    // Aggregate per campaign rather than dumping every raw row —
+                    // a lifetime export can be thousands of lines long.
+                    const byCampaign = new Map();
+                    filtered.forEach(row => {
+                        const name = strFrom(row, COL.campaign) || 'Unknown';
+                        if (!byCampaign.has(name)) byCampaign.set(name, { spend: 0, imp: 0, clicks: 0 });
+                        const c = byCampaign.get(name);
+                        c.spend += numFrom(row, COL.spend);
+                        c.imp += numFrom(row, COL.impressions);
+                        c.clicks += numFrom(row, COL.clicks);
+                    });
+
+                    [...byCampaign.entries()]
+                        .sort((a, b) => b[1].spend - a[1].spend)
+                        .forEach(([name, c]) => {
+                            const cpc = c.clicks > 0 ? c.spend / c.clicks : 0;
+                            const tr = document.createElement('tr');
+                            tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+                            [name, `Rp ${formatNumber(c.spend)}`, formatNumber(c.imp), formatNumber(c.clicks), `Rp ${formatNumber(cpc)}`]
+                                .forEach(text => {
+                                    const td = document.createElement('td');
+                                    td.style.padding = '12px 8px';
+                                    td.textContent = text; // textContent, not innerHTML — campaign names are user data
+                                    tr.appendChild(td);
+                                });
+                            reportTableBody.appendChild(tr);
+                        });
+                }
             }
         }
 
+        // Attached once, at startup. The old code re-attached this inside
+        // handleParsedData, so every sync added another duplicate listener.
+        [campaignSelect, adsetSelect, adSelect].forEach(sel => {
+            if (sel) sel.addEventListener('change', filterDataAndRender);
+        });
+
         function handleParsedData(data, columns, filename) {
-            // Filter out 'TOTAL' rows immediately
             currentParsedData = data.filter(row => {
-                const name = row['Nama Campaign'] || row['Campaign name'] || '';
+                const name = strFrom(row, COL.campaign);
                 return !name.toUpperCase().includes('TOTAL');
             });
 
@@ -524,244 +687,399 @@ document.addEventListener('DOMContentLoaded', () => {
                 columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
             });
 
-            // Populate Dropdowns
-            const campaignSelect = document.getElementById('filter-campaign');
-            if (campaignSelect) {
-                const uniqueCampaigns = [...new Set(currentParsedData.map(r => r['Nama Campaign'] || r['Campaign name']).filter(Boolean))];
-                campaignSelect.innerHTML = '<option value="all">All Campaigns</option>';
-                uniqueCampaigns.forEach(c => {
-                    const opt = document.createElement('option');
-                    opt.value = c;
-                    opt.textContent = c;
-                    campaignSelect.appendChild(opt);
-                });
-                campaignSelect.addEventListener('change', filterDataAndRender);
-            }
+            fillSelect(campaignSelect, [...new Set(currentParsedData.map(r => strFrom(r, COL.campaign)).filter(Boolean))], 'All Campaigns');
 
             currentDataProfile = {
-                filename: filename, totalRows: currentParsedData.length, columns: columns, blankCellsFound: blankCount, sampleData: currentParsedData.slice(0, 5)
+                filename,
+                totalRows: currentParsedData.length,
+                columns,
+                blankCellsFound: blankCount,
+                sampleData: currentParsedData.slice(0, 5)
             };
 
             const datasetStats = document.getElementById('dataset-stats');
-            if(datasetStats) datasetStats.textContent = `${currentParsedData.length} Rows Loaded`;
-            
-            if(uploadZone) uploadZone.style.display = 'none';
-            if(chatInterface) chatInterface.style.display = 'flex';
+            if (datasetStats) datasetStats.textContent = `${currentParsedData.length} Rows Loaded`;
+
+            if (uploadZone) uploadZone.style.display = 'none';
+            if (chatInterface) chatInterface.style.display = 'flex';
 
             chatHistory = [];
-            addChatMessage('AI', `I've successfully loaded **${filename}**. I removed the "TOTAL" row to prevent skewing charts. It contains ${currentParsedData.length} clean rows. How would you like to process this Meta Ads data?`);
-            
+            addChatMessage('AI', `I've loaded **${filename}** — ${currentParsedData.length} rows after removing any TOTAL summary row. How would you like to process this Meta Ads data?`);
+
+            updateReportDateLabel();
             filterDataAndRender();
         }
 
+        // ---------------------------------------------------------------------
+        // FILE UPLOAD
+        // ---------------------------------------------------------------------
+        if (uploadZone && fileInput) {
+            uploadZone.addEventListener('click', () => fileInput.click());
+            uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'rgba(255,255,255,0.8)'; });
+            uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'rgba(255,255,255,0.3)'; });
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.style.borderColor = 'rgba(255,255,255,0.3)';
+                if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) processFile(e.target.files[0]);
+            });
+        }
+
         function processFile(file) {
-            // Because Meta often exports XLSX files disguised with a .csv extension, 
-            // we will ALWAYS use the robust SheetJS library which can handle both true CSV and true XLSX binary data.
+            // Meta often exports XLSX content under a .csv extension, so always go
+            // through SheetJS, which sniffs the real format either way.
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 try {
                     const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, {type: 'array'});
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
-                    // Parse as a 2D array first to find the real header row
-                    const rawRows = XLSX.utils.sheet_to_json(worksheet, {header: 1, defval: ""});
-                    
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+                    const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
                     if (rawRows.length === 0) {
                         alert('The file appears to be empty.');
                         return;
                     }
-                    
-                    // Find the first row that actually looks like a header row (has multiple columns and keywords)
+
+                    // Meta prefixes exports with title rows, so locate the real
+                    // header row instead of assuming row 0.
+                    const headerKeys = ['Amount Spent', 'Impressions', 'Campaign name', 'Nama Campaign', 'Reach'];
                     let headerRowIndex = 0;
                     for (let i = 0; i < rawRows.length; i++) {
                         const row = rawRows[i];
-                        if (row.length > 3 && (row.includes('Amount Spent') || row.includes('Impressions') || row.includes('Campaign name') || row.includes('Nama Campaign'))) {
+                        if (row.length > 3 && headerKeys.some(k => row.includes(k))) {
                             headerRowIndex = i;
                             break;
                         }
                     }
-                    
-                    // Reparse using the correct header row
-                    const json = XLSX.utils.sheet_to_json(worksheet, {range: headerRowIndex, defval: ""});
-                    
-                    if (json.length > 0) { 
-                        handleParsedData(json, Object.keys(json[0]), file.name); 
-                    } else { 
-                        alert('No valid data found below the headers.'); 
+
+                    const json = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, defval: '' });
+                    if (json.length > 0) {
+                        handleParsedData(json, Object.keys(json[0]), file.name);
+                    } else {
+                        alert('No valid data found below the headers.');
                     }
-                } catch(err) {
-                    console.error("Parse Error:", err);
+                } catch (err) {
+                    console.error('Parse Error:', err);
                     alert("Failed to parse this file. Make sure it's a valid Meta Ads export.");
                 }
             };
             reader.readAsArrayBuffer(file);
         }
 
+        // ---------------------------------------------------------------------
+        // CONFIG SAVING
+        // ---------------------------------------------------------------------
+        if (saveKeyBtn) {
+            saveKeyBtn.addEventListener('click', () => {
+                const val = apiKeyInput.value.trim();
+                if (!val) return;
+
+                keyStatus.className = 'sheets-status disconnected';
+                keyStatus.textContent = 'Testing Key...';
+
+                const originalText = saveKeyBtn.innerHTML;
+                saveKeyBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                saveKeyBtn.disabled = true;
+
+                fetch(GEMINI_URL(val), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: 'ping' }] }] })
+                }).then(async res => {
+                    if (!res.ok) {
+                        const detail = await res.text().catch(() => '');
+                        throw new Error(`HTTP ${res.status} ${detail.slice(0, 200)}`);
+                    }
+                    geminiApiKey = val;
+                    localStorage.setItem('gemini_api_key', val);
+                    keyStatus.className = 'sheets-status connected';
+                    keyStatus.textContent = 'Key Saved & Valid';
+
+                    saveKeyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                    saveKeyBtn.style.background = 'rgba(167,243,208,0.3)';
+                    saveKeyBtn.disabled = false;
+                    setTimeout(() => resetBtn(saveKeyBtn, originalText), 2000);
+                }).catch((err) => {
+                    console.error('Gemini key validation failed:', err);
+                    keyStatus.className = 'sheets-status disconnected';
+                    keyStatus.textContent = 'Invalid API Key';
+                    // Surface the reason: a retired model id fails identically to
+                    // a bad key otherwise, which is very hard to debug.
+                    keyStatus.title = String(err.message || err);
+
+                    saveKeyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
+                    saveKeyBtn.style.background = 'rgba(254,202,202,0.3)';
+                    saveKeyBtn.disabled = false;
+                    setTimeout(() => resetBtn(saveKeyBtn, originalText), 2000);
+                });
+            });
+        }
+
+        if (saveSyncUrlBtn) {
+            saveSyncUrlBtn.addEventListener('click', () => {
+                const val = syncUrlInput.value.trim();
+                if (!val) return;
+
+                gsheetSyncUrl = val;
+                localStorage.setItem('gsheet_sync_url', val);
+                syncUrlStatus.className = 'sheets-status connected';
+                syncUrlStatus.textContent = 'Webhook Ready';
+
+                const originalText = saveSyncUrlBtn.innerHTML;
+                saveSyncUrlBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
+                saveSyncUrlBtn.style.background = 'rgba(167,243,208,0.3)';
+                setTimeout(() => resetBtn(saveSyncUrlBtn, originalText), 2000);
+            });
+        }
+
+        // ---------------------------------------------------------------------
+        // AI CHAT
+        // ---------------------------------------------------------------------
         function addChatMessage(sender, text) {
+            if (!chatLog) return;
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${sender === 'AI' ? 'ai' : 'user'}`;
-            bubble.innerHTML = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            // Escape first, then re-introduce only the bold markup we support.
+            bubble.innerHTML = escapeHtml(text)
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
             chatLog.appendChild(bubble);
             chatLog.scrollTop = chatLog.scrollHeight;
         }
 
         async function sendToGemini(userText) {
             if (!geminiApiKey) { addChatMessage('AI', 'Please save your Gemini API key in the configuration above first.'); return; }
+            if (!currentDataProfile) { addChatMessage('AI', 'Load a dataset first so I have something to analyse.'); return; }
+
             addChatMessage('User', userText);
             chatInput.value = '';
             chatHistory.push({ role: 'user', parts: [{ text: userText }] });
 
-            const systemInstruction = `You are a strict Data Quality Analyst specifically for Meta Ads data. 
-            Dataset: ${currentDataProfile.filename}.
-            Total Rows: ${currentDataProfile.totalRows}. 
-            Blank cells: ${currentDataProfile.blankCellsFound}.
-            Columns: ${currentDataProfile.columns.join(', ')}.
-            Sample Data: ${JSON.stringify(currentDataProfile.sampleData)}.
-            Keep answers concise. If the user says "Sync it", tell them to click the Sync button at the top.`;
-
-            const requestBody = {
-                system_instruction: { parts: [{ text: systemInstruction }] },
-                contents: chatHistory
-            };
+            const systemInstruction = `You are a strict Data Quality Analyst for Meta Ads data.
+Dataset: ${currentDataProfile.filename}.
+Total Rows: ${currentDataProfile.totalRows}.
+Blank cells: ${currentDataProfile.blankCellsFound}.
+Columns: ${currentDataProfile.columns.join(', ')}.
+Sample Data: ${JSON.stringify(currentDataProfile.sampleData)}.
+Keep answers concise. If the user says "Sync it", tell them to click the Sync button at the top.`;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody)
+                const response = await fetch(GEMINI_URL(geminiApiKey), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        system_instruction: { parts: [{ text: systemInstruction }] },
+                        contents: chatHistory
+                    })
                 });
-                if (!response.ok) throw new Error('API Error');
+
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
-                const aiText = data.candidates[0].content.parts[0].text;
-                
+
+                const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!aiText) throw new Error('Gemini returned no text (possibly a safety block)');
+
                 chatHistory.push({ role: 'model', parts: [{ text: aiText }] });
                 addChatMessage('AI', aiText);
             } catch (error) {
                 console.error(error);
-                addChatMessage('AI', 'Sorry, I encountered an error communicating with Gemini. Please check your API key.');
+                // Drop the unanswered turn so the next message is not sent with a
+                // dangling user entry, which Gemini rejects.
+                chatHistory.pop();
+                addChatMessage('AI', `Sorry, I could not reach Gemini: ${error.message}. Check the API key and model name.`);
             }
         }
 
-        if (sendChatBtn) {
-            sendChatBtn.addEventListener('click', () => { const text = chatInput.value.trim(); if (text) sendToGemini(text); });
-            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { const text = chatInput.value.trim(); if (text) sendToGemini(text); }});
+        if (sendChatBtn && chatInput) {
+            const send = () => { const text = chatInput.value.trim(); if (text) sendToGemini(text); };
+            sendChatBtn.addEventListener('click', send);
+            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
         }
+
+        // ---------------------------------------------------------------------
+        // PUSH TO SHEET
+        // ---------------------------------------------------------------------
+        const SYNC_BTN_IDLE = '<i class="fa-solid fa-cloud-arrow-up"></i> Sync to Sheet';
 
         if (triggerSyncBtn) {
             triggerSyncBtn.addEventListener('click', async () => {
-                if (!gsheetSyncUrl) { addChatMessage('AI', 'You need to set your Google Apps Script Webhook URL in the configuration first before syncing.'); return; }
+                if (!gsheetSyncUrl) { addChatMessage('AI', 'Set your Google Apps Script Webhook URL in the configuration first.'); return; }
                 if (!currentParsedData) return;
 
                 triggerSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+                triggerSyncBtn.disabled = true;
                 addChatMessage('AI', 'Initiating sync to Google Sheets...');
 
                 try {
+                    // Apps Script does not send CORS headers on POST, so this has to
+                    // be a no-cors request. That makes the response opaque: we
+                    // cannot read the status, so we cannot claim the write
+                    // succeeded. Only a network-level failure is detectable here.
                     await fetch(gsheetSyncUrl, {
-                        method: 'POST', mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         body: JSON.stringify(currentParsedData)
                     });
-                    setTimeout(() => {
-                        triggerSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced';
-                        triggerSyncBtn.style.background = 'rgba(167,243,208,0.9)';
-                        addChatMessage('AI', 'Success! The data has been written to your Master Google Spreadsheet.');
-                    }, 1500);
+
+                    triggerSyncBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Sent';
+                    triggerSyncBtn.style.background = 'rgba(167,243,208,0.9)';
+                    triggerSyncBtn.disabled = false;
+                    addChatMessage('AI', `Sent ${currentParsedData.length} rows to the webhook. The browser cannot read the response of a no-cors request, so please confirm the rows actually landed in your Master Spreadsheet.`);
+                    setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
                 } catch (error) {
                     console.error(error);
                     triggerSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
                     triggerSyncBtn.style.background = 'rgba(254,202,202,0.9)';
-                    addChatMessage('AI', 'Sync failed. Please verify your Webhook URL is correct and deployed as a Web App.');
+                    triggerSyncBtn.disabled = false;
+                    addChatMessage('AI', `Sync failed: ${error.message}. Verify the Webhook URL is correct and deployed as a Web App.`);
+                    setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
                 }
             });
         }
-        
-        // ==========================================
-        // REPORTING MODULE LOGIC
-        // ==========================================
+
+        // ---------------------------------------------------------------------
+        // MODULE TABS
+        // ---------------------------------------------------------------------
         const adsTab = document.getElementById('sidebar-ads-tab');
         const repTab = document.getElementById('sidebar-reports-tab');
         const adsModule = document.getElementById('ads-module');
         const repModule = document.getElementById('report-module');
+        const moduleTitle = document.getElementById('current-module-title');
 
-        if (adsTab && repTab) {
-            adsTab.addEventListener('click', () => {
-                adsTab.classList.add('active');
-                repTab.classList.remove('active');
-                adsModule.style.display = 'block';
-                repModule.style.display = 'none';
-            });
-            repTab.addEventListener('click', () => {
-                repTab.classList.add('active');
-                adsTab.classList.remove('active');
-                adsModule.style.display = 'none';
-                repModule.style.display = 'block';
-            });
+        function showModule(which) {
+            const showAds = which === 'ads';
+            if (adsTab) adsTab.classList.toggle('active', showAds);
+            if (repTab) repTab.classList.toggle('active', !showAds);
+            if (adsModule) adsModule.style.display = showAds ? 'block' : 'none';
+            if (repModule) repModule.style.display = showAds ? 'none' : 'block';
+            if (moduleTitle) moduleTitle.textContent = showAds ? 'Meta Ads & Optimization' : 'Campaign Reporting';
+            // Chart.js mis-measures canvases laid out while hidden.
+            if (showAds) Object.values(charts).forEach(c => c && c.resize());
         }
 
+        if (adsTab) adsTab.addEventListener('click', () => showModule('ads'));
+        if (repTab) repTab.addEventListener('click', () => showModule('reports'));
+
+        // ---------------------------------------------------------------------
+        // EXPORT & AI SUMMARY
+        // ---------------------------------------------------------------------
         const btnExportPdf = document.getElementById('btn-export-pdf');
+        const PDF_BTN_IDLE = '<i class="fa-solid fa-download"></i> Export PDF';
+
         if (btnExportPdf) {
             btnExportPdf.addEventListener('click', () => {
                 const element = document.getElementById('printable-report');
-                const opt = {
-                    margin:       0.5,
-                    filename:     'Campaign_Report.pdf',
-                    image:        { type: 'jpeg', quality: 0.98 },
-                    html2canvas:  { scale: 2, backgroundColor: '#1a1a2e' },
-                    jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
-                };
+                if (!element) return;
+
                 btnExportPdf.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
-                html2pdf().set(opt).from(element).save().then(() => {
-                    btnExportPdf.innerHTML = '<i class="fa-solid fa-download"></i> Export PDF';
-                });
+                btnExportPdf.disabled = true;
+
+                html2pdf().set({
+                    margin: 0.5,
+                    filename: `OIC_Campaign_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, backgroundColor: '#3b2a1a' },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+                }).from(element).save()
+                    // The old version had no catch, so any failure left the button
+                    // stuck showing "Exporting..." forever.
+                    .then(() => resetBtn(btnExportPdf, PDF_BTN_IDLE))
+                    .catch(err => {
+                        console.error('PDF export failed:', err);
+                        alert('PDF export failed: ' + err.message);
+                        resetBtn(btnExportPdf, PDF_BTN_IDLE);
+                    });
             });
         }
 
         const btnAiSummary = document.getElementById('btn-generate-ai-summary');
+        const AI_BTN_IDLE = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate Summary';
+
         if (btnAiSummary) {
             btnAiSummary.addEventListener('click', async () => {
                 if (!geminiApiKey) {
-                    alert('Please save your Gemini API Key in the Ads Configuration module first!');
+                    alert('Please save your Gemini API Key in the Ads Configuration module first.');
                     return;
                 }
-                
-                btnAiSummary.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
-                
-                const tableText = Array.from(document.querySelectorAll('#report-table-body tr')).map(tr => 
-                    Array.from(tr.querySelectorAll('td')).map(td => td.textContent).join(' | ')
-                ).join('\n');
+                if (!currentParsedData) {
+                    alert('Load a dataset first.');
+                    return;
+                }
 
-                const prompt = `You are an expert Meta Ads Analyst. Here is a report of our campaign performance:
-                Total Spend: ${document.getElementById('report-spend').textContent}
-                Total Impressions: ${document.getElementById('report-imp').textContent}
-                Total Clicks: ${document.getElementById('report-clicks').textContent}
-                Avg CPC: ${document.getElementById('report-cpc').textContent}
-                
-                Campaign Breakdown:
-                ${tableText}
-                
-                Write a 3-paragraph executive summary outlining the best performing campaigns, areas of concern, and actionable recommendations. Format the output in clean Markdown.`;
+                btnAiSummary.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+                btnAiSummary.disabled = true;
+
+                const tableText = Array.from(document.querySelectorAll('#report-table-body tr'))
+                    .map(tr => Array.from(tr.querySelectorAll('td')).map(td => td.textContent).join(' | '))
+                    .join('\n');
+
+                const textOf = id => document.getElementById(id)?.textContent || 'n/a';
+                const prompt = `You are an expert Meta Ads Analyst. Here is our campaign performance for ${textOf('report-date-range')}:
+Total Spend: ${textOf('report-spend')}
+Total Impressions: ${textOf('report-imp')}
+Total Clicks: ${textOf('report-clicks')}
+Avg CPC: ${textOf('report-cpc')}
+
+Campaign Breakdown:
+${tableText}
+
+Write a 3-paragraph executive summary covering best performing campaigns, areas of concern, and actionable recommendations. Use plain prose, bold key figures with **double asterisks**.`;
 
                 try {
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                    const response = await fetch(GEMINI_URL(geminiApiKey), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
                     });
-                    
-                    if (!response.ok) throw new Error('Failed to reach Gemini');
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
-                    
-                    let aiText = data.candidates[0].content.parts[0].text;
-                    aiText = aiText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
-                    
-                    document.getElementById('report-ai-summary').style.display = 'block';
-                    document.getElementById('report-ai-text').innerHTML = aiText;
+
+                    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!aiText) throw new Error('Gemini returned no text');
+
+                    const summaryBox = document.getElementById('report-ai-summary');
+                    const summaryText = document.getElementById('report-ai-text');
+                    if (summaryBox) summaryBox.style.display = 'block';
+                    if (summaryText) {
+                        summaryText.innerHTML = escapeHtml(aiText)
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\n/g, '<br>');
+                    }
+
                     btnAiSummary.innerHTML = '<i class="fa-solid fa-check"></i> Summary Generated';
-                } catch(e) {
-                    alert('Error generating summary. Check API Key.');
-                    btnAiSummary.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> AI Generate Summary';
+                    btnAiSummary.disabled = false;
+                    setTimeout(() => resetBtn(btnAiSummary, AI_BTN_IDLE), 3000);
+                } catch (e) {
+                    console.error(e);
+                    alert('Error generating summary: ' + e.message);
+                    resetBtn(btnAiSummary, AI_BTN_IDLE);
                 }
             });
         }
+
+        /**
+         * Draw every chart in its empty state. Without this a fresh load shows
+         * three blank canvases with no explanation until data arrives.
+         */
+        function renderEmptyDashboard() {
+            const hint = 'Upload an export or sync master data';
+            renderDayToDayChart([]);
+            setChartEmpty('day-to-day-chart', true, hint);
+            renderBreakdownChart('platformChart', [], ['Platform'], COL.impressions, 'doughnut', hint);
+            renderBreakdownChart('placementChart', [], ['Placement'], COL.impressions, 'bar', hint);
+            renderBreakdownChart('demoChart', [], ['Age'], COL.impressions, 'bar', hint);
+        }
+
+        // ---------------------------------------------------------------------
+        // BOOT — runs last, after every declaration above is initialised.
+        // ---------------------------------------------------------------------
+        updateReportDateLabel();
+        renderEmptyDashboard();
+        pullMasterData(false);
     }
 });
