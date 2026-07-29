@@ -57,7 +57,7 @@ treat the output as order-of-magnitude until there are roughly ten anchors.
 ## Tech Stack
 
 - **HTML5**: Semantic structure.
-- **CSS3**: Custom styling with `Inter` for UI and `Marcellus` for headings.
+- **CSS3**: Clean light theme — warm off-white background, white cards, `Plus Jakarta Sans` throughout, OIC brown as the accent color. Design tokens live in `:root` in `css/style.css`. (Class names like `.glass-card` are legacy from the earlier glassmorphism skin.)
 - **JavaScript**: App logic and interactivity.
 - **Chart.js**: Dynamic data visualization.
 - **FontAwesome**: Scalable vector icons.
