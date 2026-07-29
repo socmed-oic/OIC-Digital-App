@@ -170,6 +170,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
+    // 1b. HUB (hub.html) — reflect stored PR coverage on its module card
+    // =========================================================================
+    const hubView = document.getElementById('hub-view');
+    if (hubView) {
+        const prStatus = document.getElementById('hub-pr-status');
+        if (prStatus) {
+            try {
+                const count = JSON.parse(localStorage.getItem('pr_articles') || '[]').length;
+                if (count > 0) prStatus.textContent = `${count} Article${count === 1 ? '' : 's'} Tracked`;
+            } catch (e) { /* corrupt storage — keep the default label */ }
+        }
+    }
+
+    // =========================================================================
     // 2. ADS MODULE SPECIFIC LOGIC (Only runs on ads.html)
     // =========================================================================
     if (dashboardView) {

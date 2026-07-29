@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIC Digital Hub - PR &amp; Exposure</title>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SheetJS for directory import/export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Flatpickr for Date Range -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- PR & EXPOSURE VIEW -->
+    <div id="pr-view" class="view-section active">
+
+        <!-- Floating Sidebar -->
+        <aside class="floating-sidebar glass-panel">
+            <div class="sidebar-logo">
+                <img src="img/logo.png" alt="OIC Logo">
+            </div>
+            <ul class="nav-links">
+                <li class="active" id="pr-tab-tracker">
+                    <i class="fa-solid fa-satellite-dish"></i><span>PR Tracker</span>
+                </li>
+                <li id="pr-tab-directory">
+                    <i class="fa-regular fa-newspaper"></i><span>News Directory</span>
+                </li>
+            </ul>
+            <div class="sidebar-bottom">
+                <button class="glass-btn primary" onclick="window.location.href='hub.html'">
+                    <i class="fa-solid fa-arrow-left"></i><span>Exit to Hub</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- Floating Topbar -->
+            <header class="floating-topbar glass-panel">
+                <div class="topbar-left">
+                    <h2 id="pr-module-title">PR &amp; Exposure</h2>
+                </div>
+                <div class="topbar-right">
+                    <select id="pr-date-shortcuts" class="glass-select" style="margin-right: 12px; height: 100%;">
+                        <option value="allTime" selected>All Time</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                        <option value="thisYear">This Year</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                    <div class="glass-pill date-picker-container" style="cursor: pointer;">
+                        <i class="fa-regular fa-calendar" style="color: rgba(255,255,255,0.7);"></i>
+                        <input type="text" id="pr-date-range" class="glass-date-input" placeholder="All dates" readonly style="cursor: pointer; width: 190px;">
+                    </div>
+                </div>
+            </header>
+
+            <div class="content-scroll-area">
+
+                <!-- 1. PR TRACKER -->
+                <section id="pr-tracker-module" class="module-section active">
+                    <div class="spatial-grid">
+
+                        <!-- Log Coverage Form -->
+                        <div class="glass-card col-span-4">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-plus" style="color: #a78bfa; margin-right: 8px;"></i> Log Coverage</h3>
+                                <span class="glass-tag" id="pr-form-mode">New Entry</span>
+                            </div>
+                            <div class="pr-form-grid">
+                                <div class="pr-field span-2">
+                                    <label for="pr-url">Article URL *</label>
+                                    <input type="url" id="pr-url" class="pr-input" placeholder="https://www.detik.com/... (paste the news link)">
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-outlet">Outlet</label>
+                                    <input type="text" id="pr-outlet" class="pr-input" placeholder="Auto-detected from URL">
+                                </div>
+
+                                <div class="pr-field span-3">
+                                    <label for="pr-title">Headline / Title</label>
+                                    <input type="text" id="pr-title" class="pr-input" placeholder="Article headline as published">
+                                </div>
+
+                                <div class="pr-field">
+                                    <label for="pr-date">Publish Date</label>
+                                    <input type="date" id="pr-date" class="pr-input">
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-brand">Brand</label>
+                                    <select id="pr-brand" class="pr-input">
+                                        <option value="OIC Spa">OIC Spa</option>
+                                        <option value="OIC Gym">OIC Gym</option>
+                                        <option value="OIC Corporate">OIC Corporate</option>
+                                    </select>
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-placement">Placement</label>
+                                    <select id="pr-placement" class="pr-input">
+                                        <option value="standard" selected>Standard article (&times;1)</option>
+                                        <option value="homepage">Homepage feature (&times;3)</option>
+                                        <option value="section">Section / category page (&times;1.5)</option>
+                                        <option value="buried">Buried / archive (&times;0.5)</option>
+                                    </select>
+                                </div>
+
+                                <div class="pr-field">
+                                    <label for="pr-sentiment">Sentiment</label>
+                                    <div style="display: flex; gap: 8px;">
+                                        <select id="pr-sentiment" class="pr-input" style="flex: 1;">
+                                            <option value="">— unrated —</option>
+                                            <option value="positive">Positive</option>
+                                            <option value="neutral">Neutral</option>
+                                            <option value="negative">Negative</option>
+                                        </select>
+                                        <button id="pr-ai-sentiment" class="glass-btn" style="padding: 8px 14px;" title="Classify from headline with Gemini (uses the key saved on the Meta Ads page)">
+                                            <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-cost">PR Cost (Rp)</label>
+                                    <input type="number" id="pr-cost" class="pr-input" min="0" step="1000" placeholder="0 for organic coverage">
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-actual-views">Actual Views (optional)</label>
+                                    <input type="number" id="pr-actual-views" class="pr-input" min="0" placeholder="If the outlet reported real views">
+                                </div>
+
+                                <div class="pr-field span-2">
+                                    <label for="pr-notes">Notes</label>
+                                    <input type="text" id="pr-notes" class="pr-input" placeholder="Campaign, journalist, context...">
+                                </div>
+                                <div class="pr-field pr-submit-row">
+                                    <label>&nbsp;</label>
+                                    <div style="display: flex; gap: 10px;">
+                                        <button id="pr-save" class="glass-btn primary" style="flex: 1; justify-content: center;">
+                                            <i class="fa-solid fa-calculator"></i> Estimate &amp; Save
+                                        </button>
+                                        <button id="pr-cancel" class="glass-btn" style="display: none;">Cancel</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="pr-estimate-preview" class="pr-preview"></div>
+                        </div>
+
+                        <!-- KPI Row -->
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Coverage</span>
+                                <div class="glass-icon"><i class="fa-regular fa-newspaper"></i></div>
+                            </div>
+                            <div class="value" id="pr-kpi-coverage">0</div>
+                            <div class="trend" id="pr-kpi-coverage-sub" style="color: rgba(255,255,255,0.5)">No articles yet</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Est. Reach</span>
+                                <div class="glass-icon"><i class="fa-solid fa-eye"></i></div>
+                            </div>
+                            <div class="value" id="pr-kpi-reach">0</div>
+                            <div class="trend" id="pr-kpi-reach-sub" style="color: rgba(255,255,255,0.5)">Article views</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Earned Media Value</span>
+                                <div class="glass-icon"><i class="fa-solid fa-coins"></i></div>
+                            </div>
+                            <div class="value" id="pr-kpi-emv">Rp 0</div>
+                            <div class="trend" id="pr-kpi-emv-sub" style="color: rgba(255,255,255,0.5)">CPM basis</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">PR ROI</span>
+                                <div class="glass-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                            </div>
+                            <div class="value" id="pr-kpi-roi">—</div>
+                            <div class="trend" id="pr-kpi-roi-sub" style="color: rgba(255,255,255,0.5)">EMV vs PR cost</div>
+                        </div>
+
+                        <p class="pr-caveat col-span-4">
+                            Reach figures are order-of-magnitude estimates from public rank data unless marked
+                            <strong>Verified</strong> (published traffic figure) or <strong>Reported</strong> (outlet-supplied views).
+                            Curve fit 2026-07-29 on 5 anchors — recalibrate with <code>tools/calibrate-reach.js</code>.
+                        </p>
+
+                        <!-- Charts -->
+                        <div class="glass-card col-span-4">
+                            <div class="card-header">
+                                <h3>Coverage &amp; EMV per Month</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 300px;">
+                                <canvas id="pr-trend-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card col-span-2">
+                            <div class="card-header">
+                                <h3>Sentiment Split</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 260px;">
+                                <canvas id="pr-sentiment-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="glass-card col-span-2">
+                            <div class="card-header">
+                                <h3>Top Outlets by Est. Reach</h3>
+                            </div>
+                            <div class="chart-wrapper" style="height: 260px;">
+                                <canvas id="pr-outlet-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Recent Coverage -->
+                        <div class="glass-card col-span-4">
+                            <div class="card-header">
+                                <h3>Recent Coverage</h3>
+                                <button id="pr-open-directory" class="glass-btn" style="padding: 6px 16px; font-size: 0.85rem;">
+                                    <i class="fa-solid fa-folder-open"></i> Open Directory
+                                </button>
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="pr-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th><th>Outlet</th><th>Title</th><th>Sentiment</th><th>Est. Views</th><th>EMV</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="pr-recent-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Configuration -->
+                        <div class="glass-card col-span-4">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-sliders" style="color: #a78bfa; margin-right: 8px;"></i> Estimation Configuration</h3>
+                                <span class="sheets-status" id="pr-gemini-status">Gemini: not set</span>
+                            </div>
+                            <div class="pr-form-grid">
+                                <div class="pr-field">
+                                    <label for="pr-cfg-cpm">Display CPM (Rp per 1,000 views)</label>
+                                    <input type="number" id="pr-cfg-cpm" class="pr-input" min="0" step="1000">
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-cfg-share">Tier-1 article share (% of monthly visits)</label>
+                                    <input type="number" id="pr-cfg-share" class="pr-input" min="0" step="0.01">
+                                </div>
+                                <div class="pr-field">
+                                    <label for="pr-cfg-sync">Google Apps Script Webhook (PR sheet)</label>
+                                    <input type="text" id="pr-cfg-sync" class="pr-input" placeholder="Optional — for push/pull sync">
+                                </div>
+                                <div class="pr-field span-3" style="display: flex; align-items: center; gap: 12px;">
+                                    <button id="pr-cfg-save" class="glass-btn primary">Save Configuration</button>
+                                    <span class="pr-caveat" style="margin: 0;">
+                                        Smaller outlets get a proportionally larger share per article (Tier 2 &times;2, Tier 3 &times;4, Tier 4 &times;8).
+                                        Changing these recalculates every stored estimate.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- 2. NEWS DIRECTORY -->
+                <section id="pr-directory-module" class="module-section" style="display: none;">
+
+                    <div class="glass-card" style="margin-bottom: 24px;">
+                        <div class="pr-toolbar">
+                            <input type="text" id="pr-search" class="pr-input" placeholder="Search title, outlet, domain..." style="flex: 1; min-width: 200px;">
+                            <select id="pr-filter-brand" class="glass-select">
+                                <option value="all">All Brands</option>
+                                <option value="OIC Spa">OIC Spa</option>
+                                <option value="OIC Gym">OIC Gym</option>
+                                <option value="OIC Corporate">OIC Corporate</option>
+                            </select>
+                            <select id="pr-filter-sentiment" class="glass-select">
+                                <option value="all">All Sentiment</option>
+                                <option value="positive">Positive</option>
+                                <option value="neutral">Neutral</option>
+                                <option value="negative">Negative</option>
+                                <option value="">Unrated</option>
+                            </select>
+                            <span class="glass-tag" id="pr-directory-count">0 articles</span>
+                            <span style="flex: 1;"></span>
+                            <label class="glass-btn" for="pr-import-file" style="margin: 0;">
+                                <i class="fa-solid fa-file-import"></i> Import
+                            </label>
+                            <input type="file" id="pr-import-file" accept=".csv, .xls, .xlsx" style="display: none;">
+                            <button id="pr-export" class="glass-btn"><i class="fa-solid fa-file-export"></i> Export XLSX</button>
+                            <button id="pr-push" class="glass-btn"><i class="fa-solid fa-cloud-arrow-up"></i> Push All</button>
+                            <button id="pr-pull" class="glass-btn"><i class="fa-solid fa-cloud-arrow-down"></i> Pull</button>
+                        </div>
+                        <div id="pr-sync-status" class="pr-preview"></div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div style="overflow-x: auto;">
+                            <table class="pr-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Outlet</th>
+                                        <th>Title</th>
+                                        <th>Brand</th>
+                                        <th>Placement</th>
+                                        <th>Sentiment</th>
+                                        <th>Est. Views</th>
+                                        <th>EMV</th>
+                                        <th>Cost</th>
+                                        <th>Basis</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="pr-directory-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- PR Module Logic (self-contained; must load after the libraries above) -->
+    <script src="js/pr.js"></script>
+</body>
+</html>

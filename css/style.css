@@ -336,7 +336,8 @@ h1, h2, h3, h4, h5, h6 {
 /* ==========================================================================
    DASHBOARD LAYOUT (Standalone Architecture)
    ========================================================================== */
-#dashboard-view {
+#dashboard-view,
+#pr-view {
     padding: 24px;
     gap: 24px;
     box-sizing: border-box;
@@ -758,6 +759,135 @@ span.flatpickr-weekday {
 }
 
 /* ==========================================================================
+   PR & EXPOSURE MODULE
+   ========================================================================== */
+.pr-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+.span-2 { grid-column: span 2; }
+.span-3 { grid-column: span 3; }
+
+.pr-field label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.pr-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: white;
+    font-family: inherit;
+    font-size: 0.92rem;
+    outline: none;
+    transition: var(--transition);
+}
+.pr-input:focus { border-color: rgba(255, 255, 255, 0.5); }
+.pr-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+select.pr-input option { background: var(--bg-color-1); color: white; }
+/* Dark scheme for the native date-picker icon */
+input[type="date"].pr-input::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.6; cursor: pointer; }
+
+.pr-preview {
+    margin-top: 14px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.65);
+    min-height: 18px;
+}
+
+.pr-caveat {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+    line-height: 1.5;
+    margin: -8px 4px 0;
+}
+.pr-caveat code {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+}
+
+/* Chips: tiers, sentiment, estimate basis */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.chip.tier-1 { background: rgba(253, 224, 71, 0.2); color: #fde047; }
+.chip.tier-2 { background: rgba(255, 255, 255, 0.18); color: #ffffff; }
+.chip.tier-3 { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.75); }
+.chip.tier-4 { background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.55); }
+.chip.sent-pos { background: rgba(134, 239, 172, 0.18); color: #86efac; }
+.chip.sent-neu { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.8); }
+.chip.sent-neg { background: rgba(252, 165, 165, 0.18); color: #fca5a5; }
+.chip.sent-none { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.4); }
+.chip.basis-verified { background: rgba(134, 239, 172, 0.18); color: #86efac; }
+.chip.basis-reported { background: rgba(96, 165, 250, 0.2); color: #93c5fd; }
+.chip.basis-est { background: rgba(167, 139, 250, 0.2); color: #c4b5fd; }
+.chip.basis-unknown { background: rgba(252, 165, 165, 0.15); color: #fca5a5; }
+
+/* Directory / recent tables */
+.pr-table {
+    width: 100%;
+    text-align: left;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.pr-table th {
+    padding: 12px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.pr-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: middle;
+}
+.pr-table a { color: #c4b5fd; text-decoration: none; }
+.pr-table a:hover { text-decoration: underline; }
+.pr-title-cell {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pr-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.55);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: var(--transition);
+}
+.icon-btn:hover { color: white; background: rgba(255, 255, 255, 0.12); }
+
+/* ==========================================================================
    INTERACTION POLISH
    ========================================================================== */
 
@@ -826,7 +956,10 @@ span.flatpickr-weekday {
 }
 
 @media (max-width: 768px) {
-    #dashboard-view { flex-direction: column; padding: 12px; }
+    #dashboard-view, #pr-view { flex-direction: column; padding: 12px; }
+    .pr-form-grid { grid-template-columns: 1fr; }
+    .span-2, .span-3 { grid-column: span 1; }
+    .pr-title-cell { max-width: 180px; }
     .hub-grid { grid-template-columns: 1fr; }
     .floating-sidebar { width: 100%; flex-direction: row; height: 80px; padding: 12px; justify-content: space-between; overflow-x: auto; }
     .sidebar-logo { display: none; }
