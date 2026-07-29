@@ -286,13 +286,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function setPreview(text, isError) {
         if (!form.preview) return;
         form.preview.textContent = text || '';
-        form.preview.style.color = isError ? '#fca5a5' : '';
+        form.preview.style.color = isError ? '#b91c1c' : '';
     }
 
     function setSyncStatus(text, isError) {
         if (!dir.status) return;
         dir.status.textContent = text || '';
-        dir.status.style.color = isError ? '#fca5a5' : '';
+        dir.status.style.color = isError ? '#b91c1c' : '';
     }
 
     function resetBtn(btn, html) {
@@ -367,13 +367,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Light-theme chart palette. Key names are legacy (white/white70/...) from
+    // the glass skin; values now map primary -> muted series depth.
     const W = {
-        white: '#ffffff', white70: 'rgba(255,255,255,0.7)', white30: 'rgba(255,255,255,0.3)',
-        white10: 'rgba(255,255,255,0.1)', purple: '#a78bfa', green: '#86efac', red: '#fca5a5',
+        white: '#7d5632',    // primary series (brand brown)
+        white70: '#b08968',  // secondary series
+        white30: '#d9cbb8',  // muted bars
+        white10: '#eceae6',  // grid lines / unrated slice
+        purple: '#7c3aed', green: '#16a34a', red: '#dc2626',
     };
 
     if (typeof Chart !== 'undefined') {
-        Chart.defaults.color = W.white70;
+        Chart.defaults.color = '#78716c';
         Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
         Chart.defaults.font.size = 12;
         Chart.defaults.plugins.legend.labels.usePointStyle = true;
@@ -433,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const entries = [
             ['Positive', counts.positive, W.green],
-            ['Neutral', counts.neutral, W.white70],
+            ['Neutral', counts.neutral, '#a8a29e'],
             ['Negative', counts.negative, W.red],
             ['Unrated', counts.unrated, W.white10],
         ].filter(e => e[1] > 0);
@@ -465,7 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
             type: 'bar',
             data: {
                 labels: entries.map(e => e[0]),
-                datasets: [{ label: 'Est. views', data: entries.map(e => e[1]), backgroundColor: W.white70, borderRadius: 12, barThickness: 16 }],
+                datasets: [{ label: 'Est. views', data: entries.map(e => e[1]), backgroundColor: W.white, borderRadius: 12, barThickness: 16 }],
             },
             options: {
                 indexAxis: 'y', responsive: true, maintainAspectRatio: false,
@@ -538,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const tr = document.createElement('tr');
             const cell = td('No coverage logged yet — paste a news URL above to start.');
             cell.colSpan = 6;
-            cell.style.cssText = 'text-align:center;color:rgba(255,255,255,0.5);padding:20px;';
+            cell.style.cssText = 'text-align:center;color:#a8a29e;padding:20px;';
             tr.appendChild(cell);
             body.appendChild(tr);
             return;
@@ -570,7 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'The directory is empty. Log coverage in the PR Tracker, or use Import to load past news from a spreadsheet.'
                 : 'No articles match the current filters.');
             cell.colSpan = 11;
-            cell.style.cssText = 'text-align:center;color:rgba(255,255,255,0.5);padding:20px;';
+            cell.style.cssText = 'text-align:center;color:#a8a29e;padding:20px;';
             tr.appendChild(cell);
             body.appendChild(tr);
             return;

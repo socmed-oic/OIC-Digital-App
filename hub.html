@@ -6,8 +6,8 @@
     <title>OIC Digital Hub</title>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Custom CSS (?v= busts the old long-lived browser cache on redesigns) -->
+    <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
@@ -27,7 +27,7 @@
                     </div>
                     <h3>Meta Ads & AI</h3>
                     <p>Process, clean, and analyze Meta campaigns using the AI data engine.</p>
-                    <div class="hub-metric">Status: <span style="color: #a7f3d0">Data Engine Ready</span></div>
+                    <div class="hub-metric">Status: <span style="color: var(--green)">Data Engine Ready</span></div>
                 </div>
 
                 <!-- PR & Exposure -->
@@ -37,7 +37,7 @@
                     </div>
                     <h3>PR & Exposure</h3>
                     <p>Reach estimation, earned media value, sentiment, and a news directory of past coverage.</p>
-                    <div class="hub-metric">Status: <span id="hub-pr-status" style="color: #a7f3d0">Reach Engine Ready</span></div>
+                    <div class="hub-metric">Status: <span id="hub-pr-status" style="color: var(--green)">Reach Engine Ready</span></div>
                 </div>
 
                 <!-- Content Planning -->
@@ -47,7 +47,7 @@
                     </div>
                     <h3>Content Planning</h3>
                     <p>Trend radar, strategy mix, and content calendar management.</p>
-                    <div class="hub-metric">Status: <span style="color: #fca5a5">0 Scheduled Posts</span></div>
+                    <div class="hub-metric">Status: <span style="color: var(--text-tertiary)">Coming Soon</span></div>
                 </div>
 
                 <!-- Multi-Outlet Report -->
@@ -57,13 +57,13 @@
                     </div>
                     <h3>Multi-Outlet Report</h3>
                     <p>Regional performance, outlet rankings, and anomaly detection.</p>
-                    <div class="hub-metric">Status: <span style="color: #fca5a5">No Connected Outlets</span></div>
+                    <div class="hub-metric">Status: <span style="color: var(--text-tertiary)">Coming Soon</span></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- App Logic -->
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=2"></script>
 </body>
 </html>

@@ -246,8 +246,13 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.innerHTML = html;
             btn.style.background = '';
             btn.style.borderColor = '';
+            btn.style.color = '';
             btn.disabled = false;
         }
+
+        // Success / failure button tints for the light theme.
+        const OK_BG = '#dcfce7', OK_BORDER = '#86efac', OK_TEXT = '#166534';
+        const FAIL_BG = '#fee2e2', FAIL_TEXT = '#991b1b';
 
         // ---------------------------------------------------------------------
         // MASTER DATA SYNC (GET)
@@ -264,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (masterSyncBtn) {
                 masterSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
-                masterSyncBtn.style.background = 'rgba(255,255,255,0.2)';
+                masterSyncBtn.style.background = '#f2f0ec';
                 masterSyncBtn.disabled = true;
             }
 
@@ -281,8 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (masterSyncBtn) {
                     masterSyncBtn.innerHTML = '<i class="fa-solid fa-check"></i> Synced with Master';
-                    masterSyncBtn.style.background = 'rgba(167,243,208,0.3)';
-                    masterSyncBtn.style.borderColor = 'rgba(167,243,208,0.5)';
+                    masterSyncBtn.style.background = OK_BG;
+                    masterSyncBtn.style.borderColor = OK_BORDER;
+                    masterSyncBtn.style.color = OK_TEXT;
                     masterSyncBtn.disabled = false;
                     setTimeout(() => resetBtn(masterSyncBtn, MASTER_BTN_IDLE), 3000);
                 }
@@ -300,7 +306,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (masterSyncBtn) {
                     masterSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
-                    masterSyncBtn.style.background = 'rgba(254,202,202,0.3)';
+                    masterSyncBtn.style.background = FAIL_BG;
+                    masterSyncBtn.style.color = FAIL_TEXT;
                     masterSyncBtn.disabled = false;
                     masterSyncBtn.title = message;
                     setTimeout(() => resetBtn(masterSyncBtn, MASTER_BTN_IDLE), 5000);
@@ -388,17 +395,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // ---------------------------------------------------------------------
         // CHART SETUP
         // ---------------------------------------------------------------------
+        // Light-theme chart palette. Key names are legacy (white/white70/...)
+        // from the glass skin; values now map primary -> tertiary series depth.
         const GLASS_COLORS = {
-            white: '#ffffff',
-            white70: 'rgba(255, 255, 255, 0.7)',
-            white30: 'rgba(255, 255, 255, 0.3)',
-            white10: 'rgba(255, 255, 255, 0.1)',
-            purple: '#a78bfa',
-            green: '#34d399',
-            amber: '#fbbf24'
+            white: '#7d5632',    // primary series (brand brown)
+            white70: '#b08968',  // secondary series
+            white30: '#d9cbb8',  // tertiary series
+            white10: '#eceae6',  // grid lines
+            purple: '#7c3aed',
+            green: '#16a34a',
+            amber: '#d97706'
         };
 
-        Chart.defaults.color = GLASS_COLORS.white70;
+        Chart.defaults.color = '#78716c';
         Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
         Chart.defaults.font.size = 12;
         Chart.defaults.plugins.legend.labels.usePointStyle = true;
@@ -478,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: { legend: { labels: { color: 'white' } } },
+                    plugins: { legend: { labels: { color: '#292524' } } },
                     scales: glassScales
                 }
             });
@@ -512,7 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const palette = [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30, GLASS_COLORS.white10, GLASS_COLORS.purple, GLASS_COLORS.green];
+            const palette = [GLASS_COLORS.white, GLASS_COLORS.white70, GLASS_COLORS.white30, GLASS_COLORS.amber, GLASS_COLORS.purple, GLASS_COLORS.green];
 
             makeChart(canvasId, {
                 type,
@@ -627,7 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowNote = `${filtered.length} of ${currentParsedData.length} rows`;
             document.querySelectorAll('#ads-module .trend').forEach(el => {
                 el.textContent = rowNote;
-                el.style.color = 'rgba(255,255,255,0.5)';
+                el.style.color = '#a8a29e';
             });
 
             renderDayToDayChart(filtered);
@@ -648,7 +657,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const tr = document.createElement('tr');
                     const td = document.createElement('td');
                     td.colSpan = 5;
-                    td.style.cssText = 'padding:16px;text-align:center;color:rgba(255,255,255,0.5);';
+                    td.style.cssText = 'padding:16px;text-align:center;color:#a8a29e;';
                     td.textContent = 'No rows match the current filters.';
                     tr.appendChild(td);
                     reportTableBody.appendChild(tr);
@@ -670,7 +679,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         .forEach(([name, c]) => {
                             const cpc = c.clicks > 0 ? c.spend / c.clicks : 0;
                             const tr = document.createElement('tr');
-                            tr.style.borderBottom = '1px solid rgba(255,255,255,0.1)';
+                            tr.style.borderBottom = '1px solid #eceae6';
                             [name, `Rp ${formatNumber(c.spend)}`, formatNumber(c.imp), formatNumber(c.clicks), `Rp ${formatNumber(cpc)}`]
                                 .forEach(text => {
                                     const td = document.createElement('td');
@@ -729,11 +738,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // ---------------------------------------------------------------------
         if (uploadZone && fileInput) {
             uploadZone.addEventListener('click', () => fileInput.click());
-            uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = 'rgba(255,255,255,0.8)'; });
-            uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = 'rgba(255,255,255,0.3)'; });
+            uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.style.borderColor = '#7d5632'; });
+            uploadZone.addEventListener('dragleave', () => { uploadZone.style.borderColor = '#d6d2cb'; });
             uploadZone.addEventListener('drop', (e) => {
                 e.preventDefault();
-                uploadZone.style.borderColor = 'rgba(255,255,255,0.3)';
+                uploadZone.style.borderColor = '#d6d2cb';
                 if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
             });
             fileInput.addEventListener('change', (e) => {
@@ -813,7 +822,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     keyStatus.textContent = 'Key Saved & Valid';
 
                     saveKeyBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-                    saveKeyBtn.style.background = 'rgba(167,243,208,0.3)';
+                    saveKeyBtn.style.background = OK_BG;
+                    saveKeyBtn.style.color = OK_TEXT;
                     saveKeyBtn.disabled = false;
                     setTimeout(() => resetBtn(saveKeyBtn, originalText), 2000);
                 }).catch((err) => {
@@ -825,7 +835,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     keyStatus.title = String(err.message || err);
 
                     saveKeyBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Failed';
-                    saveKeyBtn.style.background = 'rgba(254,202,202,0.3)';
+                    saveKeyBtn.style.background = FAIL_BG;
+                    saveKeyBtn.style.color = FAIL_TEXT;
                     saveKeyBtn.disabled = false;
                     setTimeout(() => resetBtn(saveKeyBtn, originalText), 2000);
                 });
@@ -844,7 +855,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const originalText = saveSyncUrlBtn.innerHTML;
                 saveSyncUrlBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved';
-                saveSyncUrlBtn.style.background = 'rgba(167,243,208,0.3)';
+                saveSyncUrlBtn.style.background = OK_BG;
+                saveSyncUrlBtn.style.color = OK_TEXT;
                 setTimeout(() => resetBtn(saveSyncUrlBtn, originalText), 2000);
             });
         }
@@ -940,14 +952,17 @@ Keep answers concise. If the user says "Sync it", tell them to click the Sync bu
                     });
 
                     triggerSyncBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Sent';
-                    triggerSyncBtn.style.background = 'rgba(167,243,208,0.9)';
+                    triggerSyncBtn.style.background = OK_BG;
+                    triggerSyncBtn.style.borderColor = OK_BORDER;
+                    triggerSyncBtn.style.color = OK_TEXT;
                     triggerSyncBtn.disabled = false;
                     addChatMessage('AI', `Sent ${currentParsedData.length} rows to the webhook. The browser cannot read the response of a no-cors request, so please confirm the rows actually landed in your Master Spreadsheet.`);
                     setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
                 } catch (error) {
                     console.error(error);
                     triggerSyncBtn.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Sync Failed';
-                    triggerSyncBtn.style.background = 'rgba(254,202,202,0.9)';
+                    triggerSyncBtn.style.background = FAIL_BG;
+                    triggerSyncBtn.style.color = FAIL_TEXT;
                     triggerSyncBtn.disabled = false;
                     addChatMessage('AI', `Sync failed: ${error.message}. Verify the Webhook URL is correct and deployed as a Web App.`);
                     setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
@@ -996,7 +1011,7 @@ Keep answers concise. If the user says "Sync it", tell them to click the Sync bu
                     margin: 0.5,
                     filename: `OIC_Campaign_Report_${new Date().toISOString().slice(0, 10)}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
-                    html2canvas: { scale: 2, backgroundColor: '#3b2a1a' },
+                    html2canvas: { scale: 2, backgroundColor: '#ffffff' },
                     jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
                 }).from(element).save()
                     // The old version had no catch, so any failure left the button
