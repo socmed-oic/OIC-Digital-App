@@ -68,6 +68,32 @@ document.addEventListener('DOMContentLoaded', () => {
         'antaranews.com': { name: 'Antara News' },
     };
 
+    /**
+     * OIC brand portfolio. Single source of truth: both brand dropdowns are
+     * populated from this list at boot, and the importer matches against it.
+     * Add or rename brands here only.
+     */
+    const BRANDS = [
+        'Annathaya',
+        'Odilia',
+        'Nirvaya',
+        'Square Gym',
+        'Odelique',
+        'Odilia Infinity Corporation',
+    ];
+    const DEFAULT_BRAND = BRANDS[0];
+
+    // Entries saved before the real brand list existed used these placeholder
+    // names; migrate them on boot so filters and charts keep working.
+    const LEGACY_BRANDS = {
+        'OIC Spa': 'Odilia',
+        'OIC Gym': 'Square Gym',
+        'OIC Corporate': 'Odilia Infinity Corporation',
+    };
+
+    /** Table-friendly label — the corporation name is too long for a cell. */
+    const displayBrand = brand => brand === 'Odilia Infinity Corporation' ? 'OIC' : (brand || '—');
+
     const RANK_API = 'https://api.webrank.top/rank/';
     const CACHE_TTL = 7 * 24 * 3600 * 1000; // rank data moves slowly; a week is fine
 
@@ -592,7 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tr.appendChild(outletCell);
 
             tr.appendChild(td(titleCell(a)));
-            tr.appendChild(td((a.brand || '—').replace('OIC ', '')));
+            tr.appendChild(td(displayBrand(a.brand), a.brand || ''));
             tr.appendChild(td(PLACEMENTS[a.placement]?.label || '—'));
             tr.appendChild(td(sentimentChip(a.sentiment)));
             tr.appendChild(td(fmtViews(a.estViews), a.estViews ? a.estViews.toLocaleString('en-US') : ''));
@@ -693,7 +719,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ['url', 'outlet', 'title', 'cost', 'actualViews', 'notes'].forEach(k => { if (form[k]) form[k].value = ''; });
         if (form.sentiment) form.sentiment.value = '';
         if (form.placement) form.placement.value = 'standard';
-        if (form.brand) form.brand.value = 'OIC Spa';
+        if (form.brand) form.brand.value = DEFAULT_BRAND;
         if (form.date) form.date.value = new Date().toISOString().slice(0, 10);
         if (form.mode) form.mode.textContent = 'New Entry';
         if (form.save) form.save.innerHTML = '<i class="fa-solid fa-calculator"></i> Estimate & Save';
@@ -707,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
         form.outlet.value = article.outlet || '';
         form.title.value = article.title || '';
         form.date.value = article.date || '';
-        form.brand.value = article.brand || 'OIC Spa';
+        form.brand.value = article.brand || DEFAULT_BRAND;
         form.placement.value = article.placement || 'standard';
         form.sentiment.value = article.sentiment || '';
         form.cost.value = article.prCost || '';
@@ -957,10 +983,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function importBrand(raw) {
-        const s = String(raw).toLowerCase();
-        if (s.includes('spa')) return 'OIC Spa';
-        if (s.includes('gym')) return 'OIC Gym';
-        return 'OIC Corporate';
+        const trimmed = String(raw).trim();
+        if (LEGACY_BRANDS[trimmed]) return LEGACY_BRANDS[trimmed];
+
+        const s = trimmed.toLowerCase();
+        if (s.includes('annathaya')) return 'Annathaya';
+        if (s.includes('nirvaya')) return 'Nirvaya';
+        if (s.includes('odelique')) return 'Odelique';
+        if (s.includes('square') || s.includes('gym')) return 'Square Gym';
+        // Corporation checks must run before the plain-Odilia check, because
+        // "Odilia Infinity Corporation" contains "odilia".
+        if (s.includes('infinity') || s.includes('corp') || s === 'oic') return 'Odilia Infinity Corporation';
+        if (s.includes('odilia')) return 'Odilia';
+        return 'Odilia Infinity Corporation'; // corporate catch-all for unknowns
     }
 
     function importPlacement(raw) {
@@ -1260,6 +1295,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // BOOT
     // =========================================================================
 
+    /** Fill both brand dropdowns from the BRANDS list (single source of truth). */
+    function populateBrandSelects() {
+        if (form.brand) {
+            form.brand.innerHTML = '';
+            BRANDS.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                form.brand.appendChild(opt);
+            });
+            form.brand.value = DEFAULT_BRAND;
+        }
+        if (dir.brand) {
+            // Keep the "All Brands" option from the markup, append the rest.
+            BRANDS.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                dir.brand.appendChild(opt);
+            });
+        }
+    }
+
+    /** One-time rename of placeholder brands on entries saved before this list existed. */
+    function migrateLegacyBrands() {
+        let changed = false;
+        articles.forEach(a => {
+            if (LEGACY_BRANDS[a.brand]) {
+                a.brand = LEGACY_BRANDS[a.brand];
+                changed = true;
+            }
+        });
+        if (changed) saveArticles();
+    }
+
+    populateBrandSelects();
+    migrateLegacyBrands();
     if (form.date) form.date.value = new Date().toISOString().slice(0, 10);
     loadConfigIntoInputs();
     renderAll();

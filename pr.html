@@ -96,11 +96,8 @@
                                 </div>
                                 <div class="pr-field">
                                     <label for="pr-brand">Brand</label>
-                                    <select id="pr-brand" class="pr-input">
-                                        <option value="OIC Spa">OIC Spa</option>
-                                        <option value="OIC Gym">OIC Gym</option>
-                                        <option value="OIC Corporate">OIC Corporate</option>
-                                    </select>
+                                    <!-- Options are populated from the BRANDS list in js/pr.js -->
+                                    <select id="pr-brand" class="pr-input"></select>
                                 </div>
                                 <div class="pr-field">
                                     <label for="pr-placement">Placement</label>
@@ -278,11 +275,9 @@
                     <div class="glass-card" style="margin-bottom: 24px;">
                         <div class="pr-toolbar">
                             <input type="text" id="pr-search" class="pr-input" placeholder="Search title, outlet, domain..." style="flex: 1; min-width: 200px;">
+                            <!-- Brand options are appended from the BRANDS list in js/pr.js -->
                             <select id="pr-filter-brand" class="glass-select">
                                 <option value="all">All Brands</option>
-                                <option value="OIC Spa">OIC Spa</option>
-                                <option value="OIC Gym">OIC Gym</option>
-                                <option value="OIC Corporate">OIC Corporate</option>
                             </select>
                             <select id="pr-filter-sentiment" class="glass-select">
                                 <option value="all">All Sentiment</option>

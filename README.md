@@ -1,6 +1,6 @@
 # OIC Marketing & Analytics Dashboard
 
-A comprehensive digital dashboard designed for OIC (encompassing OIC Spa and OIC Gym) to track and analyze marketing efforts, public relations, content strategies, and multi-outlet performance.
+A comprehensive digital dashboard for Odilia Infinity Corporation (OIC) — covering the Annathaya, Odilia, Nirvaya, Square Gym, and Odelique brands — to track and analyze marketing efforts, public relations, content strategies, and multi-outlet performance.
 
 ## Modules
 
