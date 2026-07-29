@@ -6,11 +6,8 @@
     <title>OIC Digital Hub - Meta Ads</title>
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- PapaParse for CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- SheetJS for XLS/XLSX -->
+    <!-- SheetJS handles both true CSV and XLSX-disguised-as-CSV Meta exports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Flatpickr for Date Range -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -53,12 +50,14 @@
                 <div class="topbar-right">
                     
                     <!-- Date Shortcuts -->
+                    <!-- Defaults to All Time: Meta exports are usually monthly or
+                         lifetime, and a 7-day default would hide most rows. -->
                     <select id="date-shortcuts" class="glass-select" style="margin-right: 12px; height: 100%;">
+                        <option value="allTime" selected>All Time</option>
                         <option value="7">Last 7 Days</option>
                         <option value="30">Last 30 Days</option>
                         <option value="thisMonth">This Month</option>
                         <option value="lastMonth">Last Month</option>
-                        <option value="allTime">All Time</option>
                         <option value="custom">Custom Range</option>
                     </select>
 
@@ -315,7 +314,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- App Logic -->
+    <!-- App Logic (must load after every library above) -->
     <script src="js/app.js"></script>
 </body>
 </html>

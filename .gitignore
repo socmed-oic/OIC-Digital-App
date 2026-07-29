@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Local tooling / editor
+.claude/
+.vercel/
+.env
+.env.local
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
