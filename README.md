@@ -13,11 +13,28 @@ A comprehensive digital dashboard designed for OIC (encompassing OIC Spa and OIC
    Includes a Gemini-backed chat for data-quality questions, a reporting view with
    per-campaign aggregation, an AI executive summary, and PDF export.
 
+2. **PR & Exposure** (`pr.html`) — paste a news URL and get an estimated article
+   reach and earned media value. Two tabs:
+   - *PR Tracker* — log coverage (URL, headline, brand, placement, sentiment,
+     PR cost), see KPIs (coverage, est. reach, EMV, PR ROI), monthly trend,
+     sentiment split and top outlets. Sentiment can be auto-rated from the
+     headline with Gemini.
+   - *News Directory* — the searchable database of past coverage, with
+     brand/sentiment filters, XLSX export, bulk import from a spreadsheet
+     (loads historical news in one go), and optional Google Sheet push/pull.
+
+   **How reach is estimated:** the outlet's monthly visits come from a verified
+   published figure when we have one, otherwise from a rank-to-traffic curve
+   (`log10(visits) = a − b·log10(rank)`) against free rank data from
+   `api.webrank.top` (no API key, CORS-open). Article views are then
+   `visits × article-share% (tier-scaled) × placement multiplier`, and
+   `EMV = views ÷ 1000 × CPM` (CPM and share are configurable in-app). Every
+   figure is labelled with its basis — Verified, Reported (outlet-supplied),
+   Estimated, or Unestimated — and estimates should be read as
+   order-of-magnitude. Domain lookups are cached locally for 7 days.
+
 ### Planned (hub cards are placeholders, not yet implemented)
 
-2. **PR & Exposure** — PR cost vs earned media value, sentiment, and an exposure
-   tracker for media and influencers. Reach estimation groundwork lives in
-   `tools/calibrate-reach.js`.
 3. **Content Planning** — trend radar, strategy mix, content calendar.
 4. **Multi-Outlet Report** — regional performance and outlet rankings.
 
