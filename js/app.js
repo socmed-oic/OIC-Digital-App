@@ -197,13 +197,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (hubView) {
         const prStatus = document.getElementById('hub-pr-status');
         if (prStatus) {
-            try {
-                // pr.js mirrors the live Firestore count here; the array key is
-                // the pre-cloud fallback.
-                let count = parseInt(localStorage.getItem('pr_articles_count') || '', 10);
-                if (isNaN(count)) count = JSON.parse(localStorage.getItem('pr_articles') || '[]').length;
-                if (count > 0) prStatus.textContent = `${count} Article${count === 1 ? '' : 's'} Tracked`;
-            } catch (e) { /* corrupt storage — keep the default label */ }
+            // Only trust the count pr.js mirrors from the live cloud snapshot.
+            // Never fall back to the pre-cloud localStorage array: that data may
+            // not have migrated yet, and showing it here claims articles the
+            // shared directory does not have.
+            const count = parseInt(localStorage.getItem('pr_articles_count') || '', 10);
+            if (!isNaN(count) && count > 0) {
+                prStatus.textContent = `${count} Article${count === 1 ? '' : 's'} Tracked`;
+            }
         }
 
         const signOutBtn = document.getElementById('hub-signout');

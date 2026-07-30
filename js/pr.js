@@ -1414,7 +1414,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAll();
         }, err => {
             console.error('Articles subscription error:', err);
-            setSyncStatus(`Live sync error: ${err.message}`, true);
+            // Surface on BOTH tabs — the directory status line is invisible
+            // from the tracker, and a denied subscription otherwise looks like
+            // an empty directory.
+            const hint = err.code === 'permission-denied'
+                ? 'Live sync blocked: Firestore rules reject the team account. Update the rules to allow team@oic-digital.app.'
+                : `Live sync error: ${err.message}`;
+            setSyncStatus(hint, true);
+            setPreview(hint, true);
         });
     }
 
