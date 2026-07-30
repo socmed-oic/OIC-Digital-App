@@ -13,6 +13,9 @@
 
     <!-- HUB VIEW -->
     <div id="hub-view" class="view-section active glass-container-center">
+        <button id="hub-signout" class="glass-btn" style="position: absolute; top: 20px; right: 20px;">
+            <i class="fa-solid fa-right-from-bracket"></i> Sign out
+        </button>
         <div class="hub-wrapper">
             <div class="hub-header">
                 <h2>Welcome to OIC</h2>
@@ -63,6 +66,11 @@
         </div>
     </div>
 
+    <!-- Firebase (compat builds: global `firebase` namespace, no bundler needed) -->
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="js/firebase-init.js?v=2"></script>
     <!-- App Logic -->
     <script src="js/app.js?v=2"></script>
 </body>

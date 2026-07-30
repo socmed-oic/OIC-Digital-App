@@ -93,11 +93,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. PIN LOGIN SYSTEM (Only runs on index.html)
     // =========================================================================
     if (loginView) {
-        // NOTE: this is a client-side speed bump, not authentication. Anyone can
-        // read this value in devtools or in the public repo. Do not put anything
-        // genuinely sensitive behind it.
-        const CORRECT_PIN = '1234';
+        // The PIN is the password of the shared team Firebase account, verified
+        // server-side by Firebase Auth. It never appears in this repository —
+        // the old hardcoded client-side PIN is gone.
+        const PIN_LENGTH = 6;
         let currentPin = '';
+        let submitting = false;
         const pinDots = document.querySelectorAll('.pin-dot');
         const numberKeys = document.querySelectorAll('.pin-keypad .key:not(.action-key)');
         const clearBtn = document.getElementById('pin-clear');
@@ -116,26 +117,46 @@ document.addEventListener('DOMContentLoaded', () => {
             if (errorMsg) errorMsg.textContent = '';
         }
 
+        function showPinError(message) {
+            if (errorMsg) errorMsg.textContent = message;
+            pinDots.forEach(dot => dot.classList.add('error'));
+            setTimeout(() => {
+                currentPin = '';
+                updatePinDisplay();
+            }, 1000);
+        }
+
         function submitPin() {
-            if (currentPin.length !== 4) return;
-            if (currentPin === CORRECT_PIN) {
-                window.location.href = 'hub.html';
-            } else {
-                if (errorMsg) errorMsg.textContent = 'Incorrect PIN';
-                pinDots.forEach(dot => dot.classList.add('error'));
-                setTimeout(() => {
-                    currentPin = '';
-                    updatePinDisplay();
-                }, 1000);
+            if (submitting || currentPin.length !== PIN_LENGTH) return;
+
+            const fb = window.OICFirebase;
+            if (!fb) {
+                showPinError('Sign-in service failed to load — check your connection.');
+                return;
             }
+
+            submitting = true;
+            if (errorMsg) errorMsg.textContent = 'Checking...';
+
+            fb.signInWithPin(currentPin)
+                .then(() => { window.location.href = 'hub.html'; })
+                .catch((err) => {
+                    submitting = false;
+                    const code = (err && err.code) || '';
+                    let message = 'Incorrect PIN';
+                    if (code === 'auth/too-many-requests') message = 'Too many attempts — wait a few minutes and try again.';
+                    else if (code === 'auth/network-request-failed') message = 'Network error — check your connection.';
+                    else if (code === 'auth/user-not-found' || code === 'auth/invalid-email') message = 'Team account is not set up in Firebase yet.';
+                    showPinError(message);
+                });
         }
 
         numberKeys.forEach(key => {
             key.addEventListener('click', () => {
-                if (currentPin.length < 4) {
+                if (currentPin.length < PIN_LENGTH) {
                     currentPin += key.textContent;
                     updatePinDisplay();
-                    if (currentPin.length === 4) setTimeout(submitPin, 150);
+                    if (currentPin.length === PIN_LENGTH) setTimeout(submitPin, 150);
                 }
             });
         });
@@ -153,10 +174,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.addEventListener('keydown', (e) => {
             if (e.key >= '0' && e.key <= '9') {
-                if (currentPin.length < 4) {
+                if (currentPin.length < PIN_LENGTH) {
                     currentPin += e.key;
                     updatePinDisplay();
-                    if (currentPin.length === 4) setTimeout(submitPin, 150);
+                    if (currentPin.length === PIN_LENGTH) setTimeout(submitPin, 150);
                 }
             } else if (e.key === 'Backspace') {
                 if (currentPin.length > 0) {
@@ -177,9 +198,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const prStatus = document.getElementById('hub-pr-status');
         if (prStatus) {
             try {
-                const count = JSON.parse(localStorage.getItem('pr_articles') || '[]').length;
+                // pr.js mirrors the live Firestore count here; the array key is
+                // the pre-cloud fallback.
+                let count = parseInt(localStorage.getItem('pr_articles_count') || '', 10);
+                if (isNaN(count)) count = JSON.parse(localStorage.getItem('pr_articles') || '[]').length;
                 if (count > 0) prStatus.textContent = `${count} Article${count === 1 ? '' : 's'} Tracked`;
             } catch (e) { /* corrupt storage — keep the default label */ }
+        }
+
+        const signOutBtn = document.getElementById('hub-signout');
+        if (signOutBtn) {
+            signOutBtn.addEventListener('click', () => {
+                if (window.OICFirebase) window.OICFirebase.signOut();
+                else window.location.href = 'index.html';
+            });
         }
     }
 
@@ -316,6 +348,78 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (masterSyncBtn) masterSyncBtn.addEventListener('click', () => pullMasterData(true));
+
+        // ---------------------------------------------------------------------
+        // TEAM CLOUD DATASET (Firestore)
+        // The current Meta export is shared team-wide: a meta doc at
+        // ads_data/current plus row chunks in its `chunks` subcollection.
+        // Chunking exists because a Firestore doc caps at 1 MiB and because it
+        // keeps read counts low (one chunk = hundreds of rows = one read).
+        // ---------------------------------------------------------------------
+        const CLOUD_CHUNK_ROWS = 400;
+        let lastAppliedStamp = null; // suppresses the echo of our own writes
+
+        function cloudRefs() {
+            const fb = window.OICFirebase;
+            if (!fb || !fb.db) return null;
+            const meta = fb.db.collection('ads_data').doc('current');
+            return { meta, chunks: meta.collection('chunks') };
+        }
+
+        async function saveDatasetToCloud(rows, filename) {
+            const refs = cloudRefs();
+            if (!refs || rows.length === 0) return;
+            try {
+                const stamp = Date.now();
+                const old = await refs.chunks.get();
+                const batch = window.OICFirebase.db.batch();
+                old.docs.forEach(d => batch.delete(refs.chunks.doc(d.id)));
+                for (let i = 0; i * CLOUD_CHUNK_ROWS < rows.length; i++) {
+                    batch.set(refs.chunks.doc(String(i)), {
+                        json: JSON.stringify(rows.slice(i * CLOUD_CHUNK_ROWS, (i + 1) * CLOUD_CHUNK_ROWS)),
+                    });
+                }
+                lastAppliedStamp = stamp;
+                batch.set(refs.meta, {
+                    filename,
+                    stamp,
+                    rowCount: rows.length,
+                    chunkCount: Math.ceil(rows.length / CLOUD_CHUNK_ROWS),
+                    savedAt: new Date().toISOString(),
+                });
+                await batch.commit();
+                if (chatLog && chatInterface && chatInterface.style.display !== 'none') {
+                    addChatMessage('AI', `Dataset saved to the team cloud (${rows.length} rows) — teammates will see it live.`);
+                }
+            } catch (err) {
+                console.error('Cloud save failed:', err);
+                alert('Warning: this dataset could NOT be saved to the team cloud (' + (err.message || err) + '). Right now it only exists in this browser tab.');
+            }
+        }
+
+        async function loadCloudDataset(metaData) {
+            const refs = cloudRefs();
+            if (!refs) return;
+            const snap = await refs.chunks.get();
+            const rows = [...snap.docs]
+                .sort((a, b) => Number(a.id) - Number(b.id))
+                .flatMap(d => JSON.parse(d.data().json));
+            if (rows.length > 0) {
+                handleParsedData(rows, Object.keys(rows[0]), metaData.filename || 'Team dataset', { fromCloud: true });
+            }
+        }
+
+        function subscribeCloudDataset() {
+            const refs = cloudRefs();
+            if (!refs) return;
+            refs.meta.onSnapshot(doc => {
+                if (!doc.exists) return;
+                const data = doc.data();
+                if (!data || data.stamp === lastAppliedStamp) return;
+                lastAppliedStamp = data.stamp;
+                loadCloudDataset(data).catch(err => console.error('Cloud dataset load failed:', err));
+            }, err => console.error('Cloud dataset subscription error:', err));
+        }
 
         // ---------------------------------------------------------------------
         // DATE PICKER & SHORTCUTS
@@ -699,7 +803,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sel) sel.addEventListener('change', filterDataAndRender);
         });
 
-        function handleParsedData(data, columns, filename) {
+        function handleParsedData(data, columns, filename, opts) {
+            opts = opts || {};
             currentParsedData = data.filter(row => {
                 const name = strFrom(row, COL.campaign);
                 return !name.toUpperCase().includes('TOTAL');
@@ -731,6 +836,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateReportDateLabel();
             filterDataAndRender();
+
+            // Local uploads and sheet pulls are pushed to the team cloud; data
+            // arriving FROM the cloud must not be written straight back.
+            if (!opts.fromCloud) saveDatasetToCloud(currentParsedData, filename);
         }
 
         // ---------------------------------------------------------------------
@@ -1106,9 +1215,13 @@ Write a 3-paragraph executive summary covering best performing campaigns, areas 
 
         // ---------------------------------------------------------------------
         // BOOT — runs last, after every declaration above is initialised.
+        // The team cloud is the shared source of truth; the Google Sheet pull
+        // is a manual import that also feeds the cloud.
         // ---------------------------------------------------------------------
         updateReportDateLabel();
         renderEmptyDashboard();
-        pullMasterData(false);
+        if (window.OICFirebase) {
+            window.OICFirebase.whenAuthed(() => subscribeCloudDataset());
+        }
     }
 });
