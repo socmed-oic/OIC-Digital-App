@@ -279,13 +279,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // STATE
     // =========================================================================
 
-    let articles = store.get('pr_articles', []);
+    let articles = [];        // live-synced from Firestore by subscribeArticles()
     let config = Object.assign({}, DEFAULT_CONFIG, store.get('pr_config', {}));
     let activeRange = null;   // {start: Date, end: Date} | null
     let editingId = null;
     let previewSite = null;   // last URL-preview estimate, reused on save
 
-    function saveArticles() { store.set('pr_articles', articles); }
+    // ---- team cloud helpers (Firestore) ----
+
+    function prCol() {
+        const fb = window.OICFirebase;
+        return (fb && fb.db) ? fb.db.collection('pr_articles') : null;
+    }
+
+    function configDoc() {
+        const fb = window.OICFirebase;
+        return (fb && fb.db) ? fb.db.collection('config').doc('pr') : null;
+    }
+
+    /** Upsert one article to the team cloud; the snapshot listener rerenders. */
+    async function cloudSaveArticle(article) {
+        const col = prCol();
+        if (!col) throw new Error('cloud connection unavailable');
+        await col.doc(article.id).set(article);
+    }
+
+    async function cloudDeleteArticle(id) {
+        const col = prCol();
+        if (!col) throw new Error('cloud connection unavailable');
+        await col.doc(id).delete();
+    }
+
+    /** Batched upsert for import/migration paths (Firestore caps batches at 500 ops). */
+    async function cloudSaveMany(list) {
+        const col = prCol();
+        if (!col) throw new Error('cloud connection unavailable');
+        const unique = [...new Map(list.map(a => [a.id, a])).values()];
+        for (let i = 0; i < unique.length; i += 450) {
+            const batch = window.OICFirebase.db.batch();
+            unique.slice(i, i + 450).forEach(a => batch.set(col.doc(a.id), a));
+            await batch.commit();
+        }
+    }
 
     // =========================================================================
     // DOM REFERENCES
@@ -803,21 +838,21 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         Object.assign(article, computeArticle(article, site, config));
 
-        if (editingId) {
-            const idx = articles.findIndex(a => a.id === editingId);
-            if (idx >= 0) articles[idx] = article; else articles.push(article);
-        } else {
-            articles.push(article);
+        try {
+            await cloudSaveArticle(article);
+        } catch (err) {
+            console.error('Cloud save failed:', err);
+            setPreview(`Could not save to the team cloud: ${err.message}. The entry was NOT saved.`, true);
+            resetBtn(form.save, '<i class="fa-solid fa-calculator"></i> Estimate & Save');
+            return;
         }
-        saveArticles();
 
         const savedMsg = article.estViews !== null
-            ? `Saved — est. ${fmtNum(article.estViews)} views, EMV ${fmtRp(article.emv)} (${BASIS_LABEL[article.viewsBasis]}).`
+            ? `Saved to the team cloud — est. ${fmtNum(article.estViews)} views, EMV ${fmtRp(article.emv)} (${BASIS_LABEL[article.viewsBasis]}).`
             : 'Saved without a reach estimate — use Re-estimate in the directory once the outlet resolves.';
 
         clearForm();
         setPreview(savedMsg);
-        renderAll();
         resetBtn(form.save, '<i class="fa-solid fa-calculator"></i> Estimate & Save');
     }
 
@@ -875,10 +910,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadIntoForm(article);
 
             } else if (btn.dataset.action === 'delete') {
-                if (!confirm(`Delete "${article.title || article.url}" from the directory?`)) return;
-                articles = articles.filter(a => a.id !== article.id);
-                saveArticles();
-                renderAll();
+                if (!confirm(`Delete "${article.title || article.url}" from the team directory? This removes it for everyone.`)) return;
+                cloudDeleteArticle(article.id)
+                    .catch(err => setSyncStatus(`Delete failed: ${err.message}`, true));
 
             } else if (btn.dataset.action === 'reestimate') {
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -887,12 +921,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     article.site = site;
                     Object.assign(article, computeArticle(article, site, config));
                     article.updatedAt = new Date().toISOString();
-                    saveArticles();
+                    await cloudSaveArticle(article);
                     setSyncStatus(`Re-estimated ${article.domain}: ${site.visits ? '~' + fmtNum(site.visits) + ' monthly visits (' + site.detail + ')' : 'still no rank data'}.`);
                 } catch (err) {
                     setSyncStatus(`Re-estimate failed for ${article.domain}: ${err.message}`, true);
+                    renderAll(); // restore the spinner icon on failure
                 }
-                renderAll();
             }
         });
     }
@@ -1024,7 +1058,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapped = rawRows.map(mapRow).filter(r => r.url);
         summary.skipped = rawRows.length - mapped.length;
 
-        const siteCache = {}; // per-run memo on top of the persistent cache
+        const siteCache = {};          // per-run memo on top of the persistent cache
+        const preparedByUrl = new Map(); // dedupes repeated URLs within one import
+        const toWrite = [];
         let done = 0;
 
         for (const row of mapped) {
@@ -1046,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const site = siteCache[domain];
 
-            const existing = articles.find(a => a.url === url);
+            const existing = preparedByUrl.get(url) || articles.find(a => a.url === url);
             const article = {
                 id: existing?.id || newId(),
                 url, domain,
@@ -1065,16 +1101,16 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             Object.assign(article, computeArticle(article, site, config));
 
-            if (existing) {
-                articles[articles.indexOf(existing)] = article;
-                summary.updated += 1;
-            } else {
-                articles.push(article);
-                summary.added += 1;
-            }
+            if (existing) summary.updated += 1;
+            else summary.added += 1;
+            preparedByUrl.set(url, article);
+            toWrite.push(article);
         }
 
-        saveArticles();
+        if (toWrite.length > 0) {
+            if (progress) progress(`Saving ${toWrite.length} article(s) to the team cloud...`);
+            await cloudSaveMany(toWrite); // cloudSaveMany dedupes by id
+        }
         return summary;
     }
 
@@ -1189,21 +1225,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const cfgSaveBtn = el('pr-cfg-save');
     if (cfgSaveBtn) {
-        cfgSaveBtn.addEventListener('click', () => {
+        cfgSaveBtn.addEventListener('click', async () => {
             config.cpm = Math.max(0, parseFloat(el('pr-cfg-cpm').value) || DEFAULT_CONFIG.cpm);
             config.baseShare = Math.max(0, parseFloat(el('pr-cfg-share').value) || DEFAULT_CONFIG.baseShare);
             config.syncUrl = el('pr-cfg-sync').value.trim();
-            store.set('pr_config', config);
+            store.set('pr_config', config); // local mirror for pre-auth boots
+
+            cfgSaveBtn.disabled = true;
+            cfgSaveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Recalculating...';
 
             // New economics apply to every stored estimate (reported actuals keep
-            // their view counts; only the EMV pricing moves for those).
-            articles.forEach(a => {
-                if (a.site) Object.assign(a, computeArticle(a, a.site, config));
-            });
-            saveArticles();
-            renderAll();
+            // their view counts; only the EMV pricing moves for those). Only the
+            // saver writes the recomputed articles — teammates receive them via
+            // the snapshot, so remote config changes never trigger write storms.
+            try {
+                const cfgRef = configDoc();
+                if (cfgRef) await cfgRef.set(config);
 
-            cfgSaveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved & Recalculated';
+                const recomputed = articles.filter(a => a.site);
+                recomputed.forEach(a => Object.assign(a, computeArticle(a, a.site, config)));
+                if (recomputed.length > 0) await cloudSaveMany(recomputed);
+
+                renderAll();
+                cfgSaveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Saved & Recalculated';
+            } catch (err) {
+                console.error('Config save failed:', err);
+                cfgSaveBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> Cloud Save Failed';
+            }
+            cfgSaveBtn.disabled = false;
             setTimeout(() => resetBtn(cfgSaveBtn, 'Save Configuration'), 2500);
         });
     }
@@ -1318,21 +1367,80 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /** One-time rename of placeholder brands on entries saved before this list existed. */
-    function migrateLegacyBrands() {
-        let changed = false;
-        articles.forEach(a => {
-            if (LEGACY_BRANDS[a.brand]) {
-                a.brand = LEGACY_BRANDS[a.brand];
-                changed = true;
+    // ---- team cloud subscriptions ----
+
+    let migrationRan = false;
+    let legacyFixRan = false;
+
+    function subscribeArticles() {
+        const col = prCol();
+        if (!col) return;
+        col.onSnapshot(snap => {
+            articles = snap.docs.map(d => d.data());
+
+            // Mirror the count for the hub card (read synchronously by app.js).
+            try { localStorage.setItem('pr_articles_count', String(articles.length)); } catch (e) { /* full/blocked */ }
+
+            // One-time move of pre-cloud records from this browser's storage.
+            if (!migrationRan) {
+                migrationRan = true;
+                const backup = store.get('pr_articles', []);
+                const alreadyMigrated = store.get('pr_migrated_to_cloud', false);
+                if (snap.empty && backup.length > 0 && !alreadyMigrated) {
+                    setSyncStatus(`Migrating ${backup.length} locally stored article(s) to the team cloud...`);
+                    cloudSaveMany(backup)
+                        .then(() => {
+                            store.set('pr_migrated_to_cloud', true);
+                            setSyncStatus(`Migrated ${backup.length} article(s) to the team cloud. They are kept in this browser as a backup.`);
+                        })
+                        .catch(err => setSyncStatus(`Migration failed: ${err.message}`, true));
+                }
             }
+
+            // One-time rename of entries saved under the pre-portfolio
+            // placeholder brand names.
+            if (!legacyFixRan) {
+                const legacy = articles.filter(a => LEGACY_BRANDS[a.brand]);
+                if (legacy.length > 0) {
+                    legacyFixRan = true;
+                    legacy.forEach(a => {
+                        a.brand = LEGACY_BRANDS[a.brand];
+                        a.updatedAt = new Date().toISOString();
+                    });
+                    cloudSaveMany(legacy).catch(err => console.error('Brand migration failed:', err));
+                }
+            }
+
+            renderAll();
+        }, err => {
+            console.error('Articles subscription error:', err);
+            setSyncStatus(`Live sync error: ${err.message}`, true);
         });
-        if (changed) saveArticles();
+    }
+
+    function subscribeConfig() {
+        const doc = configDoc();
+        if (!doc) return;
+        doc.onSnapshot(snap => {
+            if (!snap.exists) return;
+            config = Object.assign({}, DEFAULT_CONFIG, snap.data());
+            store.set('pr_config', config); // local mirror for pre-auth boots
+            loadConfigIntoInputs();
+            renderAll();
+        }, err => console.error('Config subscription error:', err));
     }
 
     populateBrandSelects();
-    migrateLegacyBrands();
     if (form.date) form.date.value = new Date().toISOString().slice(0, 10);
     loadConfigIntoInputs();
-    renderAll();
+    renderAll(); // empty states until the cloud subscription delivers
+
+    if (window.OICFirebase) {
+        window.OICFirebase.whenAuthed(() => {
+            subscribeConfig();
+            subscribeArticles();
+        });
+    } else {
+        setSyncStatus('Cloud connection unavailable — records cannot be saved. Reload the page once you are online.', true);
+    }
 });

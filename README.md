@@ -60,6 +60,8 @@ treat the output as order-of-magnitude until there are roughly ten anchors.
 - **CSS3**: Clean light theme — warm off-white background, white cards, `Plus Jakarta Sans` throughout, OIC brown as the accent color. Design tokens live in `:root` in `css/style.css`. (Class names like `.glass-card` are legacy from the earlier glassmorphism skin.)
 - **JavaScript**: App logic and interactivity.
 - **Chart.js**: Dynamic data visualization.
+- **Firebase (compat SDK)**: shared team auth + live-synced Firestore storage,
+  loaded from the CDN — still no build step.
 - **FontAwesome**: Scalable vector icons.
 
 ## Getting Started
@@ -83,11 +85,26 @@ Both settings live in `localStorage` and are entered in the app under
 - **Google Apps Script webhook URL** — required for master-data sync. Deploy the
   Apps Script as a Web App with "Who has access" set to **Anyone**.
 
+## Auth & team data (Firebase)
+
+- **Sign-in**: the 6-digit team PIN is the password of one shared Firebase Auth
+  account (`team@oic-digital.app`), verified server-side. It does not appear in
+  this repository. Firestore security rules only accept that account, so the
+  database rejects everyone else. Rotate the PIN by changing the account
+  password in the Firebase console.
+- **Team cloud**: news/PR records (`pr_articles`), the shared estimation config
+  (`config/pr`), and the current ads dataset (`ads_data/current` + row chunks)
+  live in Firestore with live sync — teammates see each other's changes within
+  seconds. Firestore's offline cache keeps pages working through connection
+  drops. Records created before the cloud existed migrate from `localStorage`
+  automatically on first load.
+- The `firebaseConfig` in `js/firebase-init.js` is public by design — it only
+  identifies the project. Access control lives in Auth plus the rules.
+
 ## Known limitations
 
-- The PIN on the login screen is a client-side speed bump, not authentication.
-  The value is readable in devtools and in this repo. Do not put anything
-  sensitive behind it.
+- One shared account means no per-person attribution and a leaked PIN must be
+  rotated for the whole team. Per-user Google sign-in is the natural upgrade.
 - Pushing to the sheet uses a `no-cors` request, so the browser cannot read the
   response. The app reports rows as *sent*, not *saved* — confirm in the sheet.
 
