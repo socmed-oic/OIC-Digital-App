@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <!-- Custom CSS (?v= busts the old long-lived browser cache on redesigns) -->
-    <link rel="stylesheet" href="css/style.css?v=2">
+    <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
@@ -181,10 +181,10 @@
                             </div>
                         </div>
 
-                        <!-- AI DATA PROCESSOR (Integrated into Ads Module) -->
+                        <!-- DATA PROCESSOR -->
                         <div class="col-span-4" style="margin-top: 40px; margin-bottom: 16px;">
-                            <h2 style="font-size: 1.5rem; letter-spacing: 0.5px;"><i class="fa-solid fa-brain" style="color: var(--purple); margin-right: 12px;"></i> AI Data Processor Engine</h2>
-                            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 8px;">Upload Meta Ads CSV/XLS exports to clean, analyze, and sync to your Master Spreadsheet.</p>
+                            <h2 style="font-size: 1.5rem; letter-spacing: 0.5px;"><i class="fa-solid fa-table-list" style="color: var(--brand); margin-right: 12px;"></i> Data Processor</h2>
+                            <p style="color: var(--text-secondary); font-size: 0.95rem; margin-top: 8px;">Upload Meta Ads CSV/XLS exports. Files stack up &mdash; upload as many as you like and the data accumulates. Re-uploading an overlapping period updates those rows instead of double-counting them.</p>
                         </div>
                         
                         <!-- Configuration Card -->
@@ -194,7 +194,7 @@
                             </div>
                             <div class="config-grid">
                                 <div class="sheets-connector">
-                                    <input type="password" id="gemini-api-key" placeholder="Enter Gemini API Key (Required for AI Analysis)">
+                                    <input type="password" id="gemini-api-key" placeholder="Gemini API Key (optional — only for the AI report summary)">
                                     <button id="save-api-key" class="glass-btn primary">Save Key</button>
                                     <div id="api-key-status" class="sheets-status disconnected">Missing</div>
                                 </div>
@@ -206,34 +206,41 @@
                             </div>
                         </div>
 
-                        <!-- Upload Zone -->
-                        <div class="glass-card col-span-4" id="upload-zone" style="text-align: center; padding: 60px 20px; border: 2px dashed var(--border-strong); transition: all 0.3s; cursor: pointer;">
-                            <i class="fa-solid fa-file-csv" style="font-size: 3rem; color: var(--purple); margin-bottom: 16px;"></i>
+                        <!-- Upload Zone — stays visible after upload so more files can be added -->
+                        <div class="glass-card col-span-4" id="upload-zone" style="text-align: center; padding: 48px 20px; border: 2px dashed var(--border-strong); transition: all 0.3s; cursor: pointer;">
+                            <i class="fa-solid fa-file-csv" style="font-size: 2.6rem; color: var(--brand); margin-bottom: 14px;"></i>
                             <h3>Upload Meta Ads Export</h3>
-                            <p style="color: var(--text-secondary); margin-top: 8px;">Drag & Drop a CSV or Excel (XLS/XLSX) file here</p>
-                            <input type="file" id="file-input" accept=".csv, .xls, .xlsx" style="display: none;">
+                            <p style="color: var(--text-secondary); margin-top: 8px;">Drag & drop CSV or Excel files here, or click to browse. You can select several at once.</p>
+                            <input type="file" id="file-input" accept=".csv, .xls, .xlsx" multiple style="display: none;">
                         </div>
 
-                        <!-- Chat Interface -->
-                        <div class="glass-card col-span-4" id="ai-chat-interface" style="display: none; height: 500px; flex-direction: column;">
-                            <div class="card-header" style="margin-bottom: 0; padding-bottom: 16px; border-bottom: 1px solid var(--border);">
-                                <h3><i class="fa-solid fa-robot" style="color: var(--purple); margin-right: 8px;"></i> Data Agent</h3>
-                                <div class="glass-pill-group">
+                        <!-- Dataset panel — replaces the old AI chat -->
+                        <div class="glass-card col-span-4" id="dataset-panel" style="display: none;">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-layer-group" style="color: var(--brand); margin-right: 8px;"></i> Accumulated Dataset</h3>
+                                <div style="display: flex; align-items: center; gap: 10px;">
                                     <span class="glass-tag" id="dataset-stats">0 Rows Loaded</span>
-                                    <button id="trigger-sync-btn" class="glass-btn primary" style="padding: 4px 16px; margin-left: 12px; font-size: 0.85rem;"><i class="fa-solid fa-cloud-arrow-up"></i> Sync to Sheet</button>
+                                    <button id="trigger-sync-btn" class="glass-btn" style="padding: 6px 14px; font-size: 0.85rem;">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i> Send to Sheet
+                                    </button>
+                                    <button id="clear-dataset-btn" class="glass-btn" style="padding: 6px 14px; font-size: 0.85rem;">
+                                        <i class="fa-solid fa-trash"></i> Clear All
+                                    </button>
                                 </div>
                             </div>
-                            
-                            <!-- Chat Log -->
-                            <div id="chat-log" style="flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 16px;">
-                                <!-- Messages will go here -->
-                            </div>
 
-                            <!-- Chat Input -->
-                            <div class="sheets-connector" style="margin-bottom: 0; margin-top: 16px; padding: 0;">
-                                <input type="text" id="chat-input" placeholder="Ask the AI about your data or give instructions...">
-                                <button id="send-chat" class="glass-btn primary"><i class="fa-solid fa-paper-plane"></i></button>
+                            <div id="dataset-summary" class="config-grid" style="margin-bottom: 20px;"></div>
+
+                            <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.7px; color: var(--text-secondary); margin-bottom: 10px;">Uploaded Files</h4>
+                            <div style="overflow-x: auto;">
+                                <table class="pr-table">
+                                    <thead>
+                                        <tr><th>File</th><th>Rows Added</th><th>Rows Updated</th><th>Uploaded</th></tr>
+                                    </thead>
+                                    <tbody id="upload-log-body"></tbody>
+                                </table>
                             </div>
+                            <div id="upload-status" class="pr-preview"></div>
                         </div>
 
                     </div>
@@ -314,12 +321,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- Firebase (compat builds: global `firebase` namespace, no bundler needed) -->
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="js/firebase-init.js?v=2"></script>
+    <!-- Supabase (UMD build: global `supabase` namespace, no bundler needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-init.js?v=3"></script>
     <!-- App Logic (must load after every library above) -->
-    <script src="js/app.js?v=2"></script>
+    <script src="js/app.js?v=3"></script>
 </body>
 </html>

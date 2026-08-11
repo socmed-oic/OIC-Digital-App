@@ -53,6 +53,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function startOfDay(d) { const c = new Date(d); c.setHours(0, 0, 0, 0); return c; }
     function endOfDay(d) { const c = new Date(d); c.setHours(23, 59, 59, 999); return c; }
 
+    /**
+     * YYYY-MM-DD in LOCAL time.
+     * Do not use toISOString() for this: it converts to UTC first, so in
+     * Jakarta (UTC+7) a local midnight becomes 17:00 the previous day and every
+     * stored date lands one day early.
+     */
+    function localDateKey(d) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
     function formatNumber(num) {
         const n = Number(num);
         if (!isFinite(n)) return '0';
@@ -129,8 +142,8 @@ document.addEventListener('DOMContentLoaded', () => {
         function submitPin() {
             if (submitting || currentPin.length !== PIN_LENGTH) return;
 
-            const fb = window.OICFirebase;
-            if (!fb) {
+            const backend = window.OICBackend;
+            if (!backend) {
                 showPinError('Sign-in service failed to load — check your connection.');
                 return;
             }
@@ -138,15 +151,21 @@ document.addEventListener('DOMContentLoaded', () => {
             submitting = true;
             if (errorMsg) errorMsg.textContent = 'Checking...';
 
-            fb.signInWithPin(currentPin)
+            backend.signInWithPin(currentPin)
                 .then(() => { window.location.href = 'hub.html'; })
                 .catch((err) => {
                     submitting = false;
-                    const code = (err && err.code) || '';
+                    const text = String((err && err.message) || '').toLowerCase();
+                    const status = err && err.status;
+
                     let message = 'Incorrect PIN';
-                    if (code === 'auth/too-many-requests') message = 'Too many attempts — wait a few minutes and try again.';
-                    else if (code === 'auth/network-request-failed') message = 'Network error — check your connection.';
-                    else if (code === 'auth/user-not-found' || code === 'auth/invalid-email') message = 'Team account is not set up in Firebase yet.';
+                    if (status === 429 || text.includes('rate limit') || text.includes('too many')) {
+                        message = 'Too many attempts — wait a few minutes and try again.';
+                    } else if (text.includes('failed to fetch') || text.includes('network')) {
+                        message = 'Network error — check your connection.';
+                    } else if (text.includes('email not confirmed')) {
+                        message = 'Team account is not confirmed yet in Supabase.';
+                    }
                     showPinError(message);
                 });
         }
@@ -210,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const signOutBtn = document.getElementById('hub-signout');
         if (signOutBtn) {
             signOutBtn.addEventListener('click', () => {
-                if (window.OICFirebase) window.OICFirebase.signOut();
+                if (window.OICBackend) window.OICBackend.signOut();
                 else window.location.href = 'index.html';
             });
         }
@@ -238,7 +257,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let gsheetSyncUrl = localStorage.getItem('gsheet_sync_url') || '';
         let currentParsedData = null;
         let currentDataProfile = null;
-        let chatHistory = [];
         let activeRange = null; // {start: Date, end: Date} | null
 
         const apiKeyInput = document.getElementById('gemini-api-key');
@@ -251,12 +269,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const uploadZone = document.getElementById('upload-zone');
         const fileInput = document.getElementById('file-input');
-        const chatInterface = document.getElementById('ai-chat-interface');
-        const chatLog = document.getElementById('chat-log');
-        const chatInput = document.getElementById('chat-input');
-        const sendChatBtn = document.getElementById('send-chat');
+        const datasetPanel = document.getElementById('dataset-panel');
+        const uploadStatusEl = document.getElementById('upload-status');
         const triggerSyncBtn = document.getElementById('trigger-sync-btn');
+        const clearDatasetBtn = document.getElementById('clear-dataset-btn');
         const masterSyncBtn = document.getElementById('pull-master-data-btn');
+
+        /**
+         * Accumulated rows keyed by fingerprint. Uploads merge into this map
+         * instead of replacing it, so the team can add one export per week and
+         * keep the whole history. currentParsedData is the flat view of it.
+         */
+        const datasetRows = new Map();
+        const uploadLog = [];   // {filename, added, updated, at}
+
+        /**
+         * Identity of a Meta Ads row: campaign + ad set + ad + day. Re-uploading
+         * an overlapping period therefore updates the same rows rather than
+         * appending duplicates, which would silently double the reported spend.
+         *
+         * Fallback: if an export carries none of those columns, hash the whole
+         * row instead — otherwise every row would collapse onto one key and the
+         * dataset would shrink to a single record.
+         */
+        function rowFingerprint(row) {
+            const d = getRowDate(row);
+            const parts = [
+                strFrom(row, COL.campaign),
+                strFrom(row, COL.adset),
+                strFrom(row, COL.ad),
+                d ? localDateKey(d) : '',
+            ];
+            if (parts.every(p => !p)) return 'raw:' + JSON.stringify(row);
+            return parts.join('|');
+        }
+
+        function setUploadStatus(text, isError) {
+            if (!uploadStatusEl) return;
+            uploadStatusEl.textContent = text || '';
+            uploadStatusEl.style.color = isError ? '#b91c1c' : '';
+        }
 
         const campaignSelect = document.getElementById('filter-campaign');
         const adsetSelect = document.getElementById('filter-adset');
@@ -351,75 +403,117 @@ document.addEventListener('DOMContentLoaded', () => {
         if (masterSyncBtn) masterSyncBtn.addEventListener('click', () => pullMasterData(true));
 
         // ---------------------------------------------------------------------
-        // TEAM CLOUD DATASET (Firestore)
-        // The current Meta export is shared team-wide: a meta doc at
-        // ads_data/current plus row chunks in its `chunks` subcollection.
-        // Chunking exists because a Firestore doc caps at 1 MiB and because it
-        // keeps read counts low (one chunk = hundreds of rows = one read).
+        // TEAM CLOUD DATASET (Supabase)
+        // One table row per Meta export row, keyed by fingerprint. Uploads
+        // accumulate across files and across teammates; re-uploading an
+        // overlapping period updates those rows in place rather than appending
+        // duplicates, which would double the reported spend.
         // ---------------------------------------------------------------------
-        const CLOUD_CHUNK_ROWS = 400;
-        let lastAppliedStamp = null; // suppresses the echo of our own writes
+        let suppressCloudEcho = false; // ignores realtime events for our own writes
 
-        function cloudRefs() {
-            const fb = window.OICFirebase;
-            if (!fb || !fb.db) return null;
-            const meta = fb.db.collection('ads_data').doc('current');
-            return { meta, chunks: meta.collection('chunks') };
+        function sb() {
+            const backend = window.OICBackend;
+            return backend ? backend.client : null;
         }
 
-        async function saveDatasetToCloud(rows, filename) {
-            const refs = cloudRefs();
-            if (!refs || rows.length === 0) return;
+        /**
+         * Upsert rows by fingerprint. Per-row upsert (rather than rewriting one
+         * big blob) means two people uploading at the same time merge instead of
+         * clobbering each other, and re-uploading a period updates in place.
+         */
+        async function saveRowsToCloud(rows, filename, summary) {
+            const prefix = summary ? summary + ' ' : '';
+            const client = sb();
+            if (!client || rows.length === 0) return;
+
+            const payload = rows.map(r => {
+                const d = getRowDate(r);
+                return {
+                    fingerprint: r.__fp,
+                    campaign: strFrom(r, COL.campaign) || null,
+                    adset: strFrom(r, COL.adset) || null,
+                    ad: strFrom(r, COL.ad) || null,
+                    date: d ? localDateKey(d) : null,
+                    data: r,
+                    source_file: filename,
+                    uploaded_at: new Date().toISOString(),
+                };
+            });
+
             try {
-                const stamp = Date.now();
-                const old = await refs.chunks.get();
-                const batch = window.OICFirebase.db.batch();
-                old.docs.forEach(d => batch.delete(refs.chunks.doc(d.id)));
-                for (let i = 0; i * CLOUD_CHUNK_ROWS < rows.length; i++) {
-                    batch.set(refs.chunks.doc(String(i)), {
-                        json: JSON.stringify(rows.slice(i * CLOUD_CHUNK_ROWS, (i + 1) * CLOUD_CHUNK_ROWS)),
-                    });
+                suppressCloudEcho = true;
+                for (let i = 0; i < payload.length; i += 500) {
+                    const { error } = await client.from('ads_rows').upsert(payload.slice(i, i + 500));
+                    if (error) throw error;
                 }
-                lastAppliedStamp = stamp;
-                batch.set(refs.meta, {
-                    filename,
-                    stamp,
-                    rowCount: rows.length,
-                    chunkCount: Math.ceil(rows.length / CLOUD_CHUNK_ROWS),
-                    savedAt: new Date().toISOString(),
-                });
-                await batch.commit();
-                if (chatLog && chatInterface && chatInterface.style.display !== 'none') {
-                    addChatMessage('AI', `Dataset saved to the team cloud (${rows.length} rows) — teammates will see it live.`);
-                }
+                setUploadStatus(`${prefix}Saved to the team cloud — teammates will see it live.`);
             } catch (err) {
                 console.error('Cloud save failed:', err);
-                alert('Warning: this dataset could NOT be saved to the team cloud (' + (err.message || err) + '). Right now it only exists in this browser tab.');
+                setUploadStatus(`${prefix}WARNING: could NOT save to the team cloud (${err.message || err}). The data is only in this browser tab.`, true);
+            } finally {
+                suppressCloudEcho = false;
             }
         }
 
-        async function loadCloudDataset(metaData) {
-            const refs = cloudRefs();
-            if (!refs) return;
-            const snap = await refs.chunks.get();
-            const rows = [...snap.docs]
-                .sort((a, b) => Number(a.id) - Number(b.id))
-                .flatMap(d => JSON.parse(d.data().json));
-            if (rows.length > 0) {
-                handleParsedData(rows, Object.keys(rows[0]), metaData.filename || 'Team dataset', { fromCloud: true });
+        /** Replace local state with everything currently in the cloud. */
+        async function loadRowsFromCloud() {
+            const client = sb();
+            if (!client) return;
+
+            const { data, error } = await client.from('ads_rows').select('*');
+            if (error) {
+                const text = String(error.message || error).toLowerCase();
+                setUploadStatus(
+                    (text.includes('does not exist') || text.includes('schema cache'))
+                        ? 'Table ads_rows not found — run supabase/schema.sql in the SQL Editor first.'
+                        : `Could not load team data: ${error.message}`, true);
+                return;
             }
+            if (!data || data.length === 0) return;
+
+            datasetRows.clear();
+            data.forEach(rec => {
+                const row = Object.assign({}, rec.data, { __src: rec.source_file, __fp: rec.fingerprint });
+                datasetRows.set(rec.fingerprint, row);
+            });
+            currentParsedData = [...datasetRows.values()];
+
+            fillSelect(campaignSelect, [...new Set(currentParsedData.map(r => strFrom(r, COL.campaign)).filter(Boolean))], 'All Campaigns');
+            currentDataProfile = {
+                filename: 'Team dataset',
+                totalRows: currentParsedData.length,
+                columns: currentParsedData.length ? Object.keys(currentParsedData[0]) : [],
+                blankCellsFound: 0,
+                sampleData: currentParsedData.slice(0, 5),
+            };
+
+            renderDatasetPanel();
+            updateReportDateLabel();
+            filterDataAndRender();
         }
 
-        function subscribeCloudDataset() {
-            const refs = cloudRefs();
-            if (!refs) return;
-            refs.meta.onSnapshot(doc => {
-                if (!doc.exists) return;
-                const data = doc.data();
-                if (!data || data.stamp === lastAppliedStamp) return;
-                lastAppliedStamp = data.stamp;
-                loadCloudDataset(data).catch(err => console.error('Cloud dataset load failed:', err));
-            }, err => console.error('Cloud dataset subscription error:', err));
+        async function subscribeCloudDataset() {
+            await loadRowsFromCloud();
+
+            const client = sb();
+            if (!client) return;
+
+            client.channel('ads_rows_changes')
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'ads_rows' },
+                    () => {
+                        if (suppressCloudEcho) return;
+                        loadRowsFromCloud().catch(err => console.error('Cloud reload failed:', err));
+                    })
+                .subscribe();
+        }
+
+        async function clearCloudDataset() {
+            const client = sb();
+            if (!client) return;
+            // Supabase requires a filter on delete; every fingerprint is non-null.
+            const { error } = await client.from('ads_rows').delete().neq('fingerprint', '');
+            if (error) throw error;
         }
 
         // ---------------------------------------------------------------------
@@ -804,12 +898,98 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sel) sel.addEventListener('change', filterDataAndRender);
         });
 
+        /**
+         * Merge a freshly parsed file into the accumulated dataset.
+         * Returns {added, updated} so the upload log can report what happened.
+         */
+        function mergeIntoDataset(data, filename) {
+            let added = 0, updated = 0;
+
+            data.filter(row => !strFrom(row, COL.campaign).toUpperCase().includes('TOTAL'))
+                .forEach(row => {
+                    const fp = rowFingerprint(row);
+                    if (datasetRows.has(fp)) updated++; else added++;
+                    // Keep the provenance so the panel can show which file a row
+                    // came from; non-enumerable-ish keys stay out of exports by
+                    // living under a __ prefix the column helpers never read.
+                    datasetRows.set(fp, Object.assign({}, row, { __src: filename, __fp: fp }));
+                });
+
+            currentParsedData = [...datasetRows.values()];
+            return { added, updated };
+        }
+
+        function renderDatasetPanel() {
+            const total = datasetRows.size;
+
+            const statsEl = document.getElementById('dataset-stats');
+            if (statsEl) statsEl.textContent = `${total} Row${total === 1 ? '' : 's'} Loaded`;
+
+            if (datasetPanel) datasetPanel.style.display = total > 0 ? 'block' : 'none';
+
+            // Summary tiles: totals across everything accumulated so far.
+            const summary = document.getElementById('dataset-summary');
+            if (summary) {
+                const rows = currentParsedData || [];
+                const spend = rows.reduce((s, r) => s + numFrom(r, COL.spend), 0);
+                const dates = rows.map(getRowDate).filter(Boolean).sort((a, b) => a - b);
+                const fmtD = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+
+                const tiles = [
+                    ['Total Rows', String(total)],
+                    ['Files Uploaded', String(uploadLog.length)],
+                    ['Total Spend', `Rp ${formatNumber(spend)}`],
+                    ['Date Coverage', dates.length ? `${fmtD(dates[0])} – ${fmtD(dates[dates.length - 1])}` : 'No dated rows'],
+                ];
+
+                summary.innerHTML = '';
+                tiles.forEach(([label, value]) => {
+                    const card = document.createElement('div');
+                    card.className = 'glass-card';
+                    card.style.padding = '14px';
+                    const h4 = document.createElement('h4');
+                    h4.style.cssText = 'color:var(--text-secondary);margin-bottom:6px;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.7px;';
+                    h4.textContent = label;
+                    const p = document.createElement('div');
+                    p.style.cssText = 'font-size:1.25rem;font-weight:700;';
+                    p.textContent = value;
+                    card.appendChild(h4);
+                    card.appendChild(p);
+                    summary.appendChild(card);
+                });
+            }
+
+            const logBody = document.getElementById('upload-log-body');
+            if (logBody) {
+                logBody.innerHTML = '';
+                if (uploadLog.length === 0) {
+                    const tr = document.createElement('tr');
+                    const td = document.createElement('td');
+                    td.colSpan = 4;
+                    td.style.cssText = 'text-align:center;color:var(--text-tertiary);padding:16px;';
+                    td.textContent = 'Loaded from the team cloud — no uploads in this session yet.';
+                    tr.appendChild(td);
+                    logBody.appendChild(tr);
+                } else {
+                    [...uploadLog].reverse().forEach(entry => {
+                        const tr = document.createElement('tr');
+                        [entry.filename, String(entry.added), String(entry.updated),
+                         entry.at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })]
+                            .forEach(text => {
+                                const td = document.createElement('td');
+                                td.textContent = text; // filenames are untrusted input
+                                tr.appendChild(td);
+                            });
+                        logBody.appendChild(tr);
+                    });
+                }
+            }
+        }
+
         function handleParsedData(data, columns, filename, opts) {
             opts = opts || {};
-            currentParsedData = data.filter(row => {
-                const name = strFrom(row, COL.campaign);
-                return !name.toUpperCase().includes('TOTAL');
-            });
+
+            const { added, updated } = mergeIntoDataset(data, filename);
 
             let blankCount = 0;
             currentParsedData.forEach(row => {
@@ -826,21 +1006,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 sampleData: currentParsedData.slice(0, 5)
             };
 
-            const datasetStats = document.getElementById('dataset-stats');
-            if (datasetStats) datasetStats.textContent = `${currentParsedData.length} Rows Loaded`;
+            let summary = '';
+            if (!opts.fromCloud) {
+                uploadLog.push({ filename, added, updated, at: new Date() });
+                summary =
+                    `${filename}: ${added} new row${added === 1 ? '' : 's'} added` +
+                    (updated > 0 ? `, ${updated} existing row${updated === 1 ? '' : 's'} updated (overlapping period — not double-counted)` : '') +
+                    `. Dataset now holds ${datasetRows.size} rows.`;
+                setUploadStatus(summary);
+            }
 
-            if (uploadZone) uploadZone.style.display = 'none';
-            if (chatInterface) chatInterface.style.display = 'flex';
-
-            chatHistory = [];
-            addChatMessage('AI', `I've loaded **${filename}** — ${currentParsedData.length} rows after removing any TOTAL summary row. How would you like to process this Meta Ads data?`);
-
+            renderDatasetPanel();
             updateReportDateLabel();
             filterDataAndRender();
 
-            // Local uploads and sheet pulls are pushed to the team cloud; data
-            // arriving FROM the cloud must not be written straight back.
-            if (!opts.fromCloud) saveDatasetToCloud(currentParsedData, filename);
+            // Local uploads are pushed to the team cloud; data arriving FROM the
+            // cloud must not be written straight back. The dedup summary is
+            // passed through so the cloud result appends to it instead of
+            // wiping the only place the user learns what the merge did.
+            if (!opts.fromCloud) {
+                saveRowsToCloud([...datasetRows.values()].filter(r => r.__src === filename), filename, summary);
+            }
         }
 
         // ---------------------------------------------------------------------
@@ -853,17 +1039,38 @@ document.addEventListener('DOMContentLoaded', () => {
             uploadZone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 uploadZone.style.borderColor = '#d6d2cb';
-                if (e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+                if (e.dataTransfer.files.length) processFiles(e.dataTransfer.files);
             });
             fileInput.addEventListener('change', (e) => {
-                if (e.target.files.length) processFile(e.target.files[0]);
+                if (e.target.files.length) processFiles(e.target.files);
+                e.target.value = ''; // allow re-selecting the same file later
             });
         }
 
+        /**
+         * Process files one at a time. Sequential rather than parallel so each
+         * merge sees the previous file's rows — two files covering the same
+         * period must deduplicate against each other, not race.
+         */
+        async function processFiles(fileList) {
+            const files = [...fileList];
+            for (let i = 0; i < files.length; i++) {
+                if (files.length > 1) setUploadStatus(`Processing file ${i + 1} of ${files.length}: ${files[i].name}...`);
+                try {
+                    await processFile(files[i]);
+                } catch (err) {
+                    console.error('Upload failed:', err);
+                    setUploadStatus(`${files[i].name}: ${err.message}`, true);
+                }
+            }
+        }
+
         function processFile(file) {
+            return new Promise((resolve, reject) => {
             // Meta often exports XLSX content under a .csv extension, so always go
             // through SheetJS, which sniffs the real format either way.
             const reader = new FileReader();
+            reader.onerror = () => reject(new Error('could not be read from disk'));
             reader.onload = function (e) {
                 try {
                     const data = new Uint8Array(e.target.result);
@@ -872,7 +1079,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const rawRows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
                     if (rawRows.length === 0) {
-                        alert('The file appears to be empty.');
+                        reject(new Error('the file appears to be empty'));
                         return;
                     }
 
@@ -891,15 +1098,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     const json = XLSX.utils.sheet_to_json(worksheet, { range: headerRowIndex, defval: '' });
                     if (json.length > 0) {
                         handleParsedData(json, Object.keys(json[0]), file.name);
+                        resolve();
                     } else {
-                        alert('No valid data found below the headers.');
+                        reject(new Error('no data rows found below the headers'));
                     }
                 } catch (err) {
                     console.error('Parse Error:', err);
-                    alert("Failed to parse this file. Make sure it's a valid Meta Ads export.");
+                    reject(new Error("could not be parsed — is it a valid Meta Ads export?"));
                 }
             };
             reader.readAsArrayBuffer(file);
+            });
         }
 
         // ---------------------------------------------------------------------
@@ -972,82 +1181,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ---------------------------------------------------------------------
-        // AI CHAT
+        // CLEAR DATASET
         // ---------------------------------------------------------------------
-        function addChatMessage(sender, text) {
-            if (!chatLog) return;
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${sender === 'AI' ? 'ai' : 'user'}`;
-            // Escape first, then re-introduce only the bold markup we support.
-            bubble.innerHTML = escapeHtml(text)
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>');
-            chatLog.appendChild(bubble);
-            chatLog.scrollTop = chatLog.scrollHeight;
-        }
+        if (clearDatasetBtn) {
+            clearDatasetBtn.addEventListener('click', async () => {
+                if (!confirm(`Delete all ${datasetRows.size} accumulated rows? This clears the dataset for the whole team and cannot be undone.`)) return;
 
-        async function sendToGemini(userText) {
-            if (!geminiApiKey) { addChatMessage('AI', 'Please save your Gemini API key in the configuration above first.'); return; }
-            if (!currentDataProfile) { addChatMessage('AI', 'Load a dataset first so I have something to analyse.'); return; }
-
-            addChatMessage('User', userText);
-            chatInput.value = '';
-            chatHistory.push({ role: 'user', parts: [{ text: userText }] });
-
-            const systemInstruction = `You are a strict Data Quality Analyst for Meta Ads data.
-Dataset: ${currentDataProfile.filename}.
-Total Rows: ${currentDataProfile.totalRows}.
-Blank cells: ${currentDataProfile.blankCellsFound}.
-Columns: ${currentDataProfile.columns.join(', ')}.
-Sample Data: ${JSON.stringify(currentDataProfile.sampleData)}.
-Keep answers concise. If the user says "Sync it", tell them to click the Sync button at the top.`;
-
-            try {
-                const response = await fetch(GEMINI_URL(geminiApiKey), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        system_instruction: { parts: [{ text: systemInstruction }] },
-                        contents: chatHistory
-                    })
-                });
-
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const data = await response.json();
-
-                const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (!aiText) throw new Error('Gemini returned no text (possibly a safety block)');
-
-                chatHistory.push({ role: 'model', parts: [{ text: aiText }] });
-                addChatMessage('AI', aiText);
-            } catch (error) {
-                console.error(error);
-                // Drop the unanswered turn so the next message is not sent with a
-                // dangling user entry, which Gemini rejects.
-                chatHistory.pop();
-                addChatMessage('AI', `Sorry, I could not reach Gemini: ${error.message}. Check the API key and model name.`);
-            }
-        }
-
-        if (sendChatBtn && chatInput) {
-            const send = () => { const text = chatInput.value.trim(); if (text) sendToGemini(text); };
-            sendChatBtn.addEventListener('click', send);
-            chatInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
+                clearDatasetBtn.disabled = true;
+                clearDatasetBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Clearing...';
+                try {
+                    await clearCloudDataset();
+                    datasetRows.clear();
+                    uploadLog.length = 0;
+                    currentParsedData = [];
+                    currentDataProfile = null;
+                    fillSelect(campaignSelect, [], 'All Campaigns');
+                    renderDatasetPanel();
+                    renderEmptyDashboard();
+                    filterDataAndRender();
+                    setUploadStatus('Dataset cleared.');
+                } catch (err) {
+                    setUploadStatus(`Could not clear the team dataset: ${err.message || err}`, true);
+                }
+                resetBtn(clearDatasetBtn, '<i class="fa-solid fa-trash"></i> Clear All');
+            });
         }
 
         // ---------------------------------------------------------------------
         // PUSH TO SHEET
         // ---------------------------------------------------------------------
-        const SYNC_BTN_IDLE = '<i class="fa-solid fa-cloud-arrow-up"></i> Sync to Sheet';
+        const SYNC_BTN_IDLE = '<i class="fa-solid fa-cloud-arrow-up"></i> Send to Sheet';
 
         if (triggerSyncBtn) {
             triggerSyncBtn.addEventListener('click', async () => {
-                if (!gsheetSyncUrl) { addChatMessage('AI', 'Set your Google Apps Script Webhook URL in the configuration first.'); return; }
-                if (!currentParsedData) return;
+                if (!gsheetSyncUrl) { setUploadStatus('Set your Google Apps Script Webhook URL in the configuration first.', true); return; }
+                if (!currentParsedData || currentParsedData.length === 0) return;
 
-                triggerSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Syncing...';
+                triggerSyncBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sending...';
                 triggerSyncBtn.disabled = true;
-                addChatMessage('AI', 'Initiating sync to Google Sheets...');
+                setUploadStatus('Sending to Google Sheets...');
 
                 try {
                     // Apps Script does not send CORS headers on POST, so this has to
@@ -1066,7 +1238,7 @@ Keep answers concise. If the user says "Sync it", tell them to click the Sync bu
                     triggerSyncBtn.style.borderColor = OK_BORDER;
                     triggerSyncBtn.style.color = OK_TEXT;
                     triggerSyncBtn.disabled = false;
-                    addChatMessage('AI', `Sent ${currentParsedData.length} rows to the webhook. The browser cannot read the response of a no-cors request, so please confirm the rows actually landed in your Master Spreadsheet.`);
+                    setUploadStatus(`Sent ${currentParsedData.length} rows to the webhook. The browser cannot read the response of a no-cors request, so please confirm the rows actually landed in your Master Spreadsheet.`);
                     setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
                 } catch (error) {
                     console.error(error);
@@ -1074,7 +1246,7 @@ Keep answers concise. If the user says "Sync it", tell them to click the Sync bu
                     triggerSyncBtn.style.background = FAIL_BG;
                     triggerSyncBtn.style.color = FAIL_TEXT;
                     triggerSyncBtn.disabled = false;
-                    addChatMessage('AI', `Sync failed: ${error.message}. Verify the Webhook URL is correct and deployed as a Web App.`);
+                    setUploadStatus(`Send failed: ${error.message}. Verify the Webhook URL is correct and deployed as a Web App.`, true);
                     setTimeout(() => resetBtn(triggerSyncBtn, SYNC_BTN_IDLE), 4000);
                 }
             });
@@ -1221,8 +1393,10 @@ Write a 3-paragraph executive summary covering best performing campaigns, areas 
         // ---------------------------------------------------------------------
         updateReportDateLabel();
         renderEmptyDashboard();
-        if (window.OICFirebase) {
-            window.OICFirebase.whenAuthed(() => subscribeCloudDataset());
+        if (window.OICBackend) {
+            window.OICBackend.whenAuthed(() => {
+                subscribeCloudDataset().catch(err => console.error('Cloud subscription failed:', err));
+            });
         }
     }
 });
