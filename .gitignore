@@ -4,8 +4,16 @@ node_modules/
 # Local tooling / editor
 .claude/
 .vercel/
+
+# Secrets — never commit. This repo is public.
+# The service_role key and database password grant full, unrestricted access
+# to the Supabase project; only the anon/publishable key may ship to the app.
 .env
-.env.local
+.env*
+*env*.txt
+*.key
+*credential*
+*secret*
 
 # OS noise
 .DS_Store
