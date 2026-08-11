@@ -1,16 +1,18 @@
 /**
- * Ritual Teratai — customer-facing gacha for OIC.
+ * Ritual Teratai — DEMO gacha for OIC.
  *
- * Deliberately standalone: no Supabase, no auth. The rest of the app is an
- * internal dashboard behind a team PIN; this page is for customers, so pulling
- * in supabase-init.js would bounce every visitor to the login screen.
+ * Playable showcase only: nothing is stored, anywhere. No localStorage, no
+ * Supabase, no auth. Reloading the page wipes everything and rituals are
+ * unlimited, so the experience can be tried over and over.
  *
- * SECURITY NOTE: the draw runs in the browser, so a determined visitor can edit
- * localStorage or the odds and mint themselves a code. That is acceptable only
- * because a code is worthless until an outlet honours it — staff must validate
- * against issued vouchers. Moving the draw server-side (a Supabase edge
- * function writing to an issued_vouchers table) is the fix if these ever carry
- * real unattended value.
+ * Because nothing persists and no voucher is ever tracked, the codes shown are
+ * illustrative — they demonstrate what a real voucher would look like. The UI
+ * says so plainly; a visitor must never leave thinking they hold a redeemable
+ * discount.
+ *
+ * Turning this into a live promo means adding, in this order: server-side
+ * drawing (so the odds cannot be edited in the browser), an issued_vouchers
+ * table to validate codes against, and a per-person limit.
  */
 document.addEventListener('DOMContentLoaded', () => {
     'use strict';
@@ -55,34 +57,14 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'oic', name: 'Outlet OIC mana pun', logo: 'img/brands/oic.png' },
     ];
 
-    const PULLS_PER_DAY = 1;      // one ritual per device per day
-    const VOUCHER_DAYS = 30;      // validity window
+    const VOUCHER_DAYS = 30;      // shown on the illustrative voucher
     const HOLD_MS = 1600;         // how long the button must be held
-    const STORE_KEY = 'oic_gacha_v1';
 
-    // =========================================================================
-    // STORAGE
-    // =========================================================================
-    function load() {
-        try {
-            return JSON.parse(localStorage.getItem(STORE_KEY)) || { vouchers: [], pulls: {} };
-        } catch (e) {
-            return { vouchers: [], pulls: {} };
-        }
-    }
-    function save(s) {
-        try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch (e) { /* private mode */ }
-    }
-
-    let state = load();
-
-    /** Local calendar day — never toISOString(), which shifts to UTC. */
-    function todayKey(d) {
-        const t = d || new Date();
-        return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-    }
-    const pullsToday = () => state.pulls[todayKey()] || 0;
-    const pullsLeft = () => Math.max(0, PULLS_PER_DAY - pullsToday());
+    /**
+     * The only state there is: this tab's rituals, in memory. Never written to
+     * storage — a reload starts fresh, which is what a demo wants.
+     */
+    const sessionPulls = [];
 
     // =========================================================================
     // DRAW
@@ -287,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startHold(e) {
-        if (firing || pullsLeft() <= 0) return;
+        if (firing) return;
         if (e && e.cancelable) e.preventDefault();
         holdStart = performance.now();
         bowl.classList.add('charging');
@@ -348,11 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             expires: expires.toISOString(),
         };
 
-        // Record the pull before the animation so a mid-animation reload cannot
-        // hand out a second voucher for the same day.
-        state.pulls[todayKey()] = pullsToday() + 1;
-        state.vouchers.unshift(voucher);
-        save(state);
+        sessionPulls.unshift(voucher);
 
         bowl.classList.add('bloomed');
         setLotusOpen(true);
@@ -363,7 +341,8 @@ document.addEventListener('DOMContentLoaded', () => {
             setLotusOpen(false);
             setCharge(0);
             firing = false;
-            refreshQuota();
+            ritualBtn.disabled = false;
+            btnLabel.textContent = 'Tekan & tahan';
         }, 2600);
     }
 
@@ -379,17 +358,24 @@ document.addEventListener('DOMContentLoaded', () => {
         logo.alt = voucher.brandName;
         el('voucher-code').textContent = voucher.code;
         el('voucher-meta').textContent =
-            `${voucher.brandName} · berlaku sampai ${fmtDate(new Date(voucher.expires))}`;
+            `${voucher.brandName} · contoh masa berlaku ${fmtDate(new Date(voucher.expires))}`;
+        // Say plainly that this is a sample. Nothing is recorded, so a visitor
+        // must not walk away believing they hold a redeemable discount.
         el('terms').textContent =
-            'Tunjukkan kode ini kepada staf saat pembayaran. Satu voucher untuk satu transaksi, ' +
-            'tidak dapat digabung dengan promo lain, dan tidak dapat diuangkan.';
+            'Contoh tampilan voucher — ini demo, kode tidak tersimpan dan belum berlaku di outlet.';
 
         reveal.hidden = false;
         el('close-reveal').focus();
-        renderWallet();
+        renderSession();
     }
 
-    el('close-reveal').addEventListener('click', () => { reveal.hidden = true; });
+    function closeReveal() { reveal.hidden = true; }
+
+    el('close-reveal').addEventListener('click', closeReveal);
+    el('again').addEventListener('click', () => {
+        closeReveal();
+        ritualBtn.focus();
+    });
     reveal.addEventListener('click', (e) => { if (e.target === reveal) reveal.hidden = true; });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !reveal.hidden) reveal.hidden = true; });
 
@@ -408,21 +394,34 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // =========================================================================
-    // WALLET & QUOTA
+    // SESSION LOG
+    // In place of a saved wallet: what this tab has drawn so far. Doubles as a
+    // live demonstration that the rare tiers really are rare.
     // =========================================================================
-    function renderWallet() {
-        const panel = el('wallet-panel');
-        const list = el('wallet-list');
+    function renderSession() {
+        const panel = el('session-panel');
+        const list = el('session-list');
+        const tally = el('session-tally');
         if (!panel || !list) return;
 
-        if (state.vouchers.length === 0) { panel.hidden = true; return; }
+        if (sessionPulls.length === 0) { panel.hidden = true; return; }
         panel.hidden = false;
+
+        const counts = {};
+        sessionPulls.forEach(v => { counts[v.prizeId] = (counts[v.prizeId] || 0) + 1; });
+        tally.innerHTML = '';
+        PRIZES.forEach(p => {
+            if (!counts[p.id]) return;
+            const chip = document.createElement('span');
+            chip.className = 'tally-chip';
+            chip.style.color = p.color;
+            chip.style.borderColor = p.color;
+            chip.textContent = `${p.value} × ${counts[p.id]}`;
+            tally.appendChild(chip);
+        });
+
         list.innerHTML = '';
-
-        state.vouchers.slice(0, 12).forEach(v => {
-            const exp = new Date(v.expires);
-            const expired = exp < new Date();
-
+        sessionPulls.slice(0, 10).forEach(v => {
             const row = document.createElement('div');
             row.className = 'v-item';
 
@@ -442,27 +441,11 @@ document.addEventListener('DOMContentLoaded', () => {
             code.className = 'v-code';
             code.textContent = v.code;
 
-            const when = document.createElement('div');
-            when.className = 'v-exp' + (expired ? ' expired' : '');
-            when.textContent = expired ? 'Kedaluwarsa' : 'Berlaku sampai ' + fmtDate(exp);
-
-            main.appendChild(prize); main.appendChild(code); main.appendChild(when);
+            main.appendChild(prize);
+            main.appendChild(code);
             row.appendChild(main);
             list.appendChild(row);
         });
-    }
-
-    function refreshQuota() {
-        const left = pullsLeft();
-        if (left > 0) {
-            ritualBtn.disabled = false;
-            btnLabel.textContent = 'Tekan & tahan';
-            quotaNote.textContent = `Sisa ${left} ritual hari ini.`;
-        } else {
-            ritualBtn.disabled = true;
-            btnLabel.textContent = 'Kembali besok';
-            quotaNote.textContent = 'Ritual hari ini sudah selesai. Silakan kembali besok.';
-        }
     }
 
     // =========================================================================
@@ -470,6 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     setCharge(0);
     setLotusOpen(false);
-    refreshQuota();
-    renderWallet();
+    quotaNote.textContent = 'Mode demo — mainkan sebanyak yang Anda mau.';
+    renderSession();
 });

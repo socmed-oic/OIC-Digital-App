@@ -111,6 +111,17 @@ body {
 }
 .tagline { color: var(--muted); font-size: 0.95rem; margin-top: 10px; }
 
+.demo-tag {
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-top: 16px;
+    font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--gold);
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    padding: 6px 14px;
+}
+
 .panel {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -279,7 +290,16 @@ body {
 .odds .o-pct { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 9px; vertical-align: middle; }
 
-/* ============================ WALLET ============================ */
+/* ============================ SESSION LOG ============================ */
+.tally { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tally-chip {
+    font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.6px;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 4px 12px;
+    opacity: 0.9;
+}
 .v-item {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);

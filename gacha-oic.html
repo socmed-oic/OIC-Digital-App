@@ -25,6 +25,7 @@
         <img src="img/brands/oic.png" alt="Odilia Infinity Corp." class="oic-logo">
         <h1>Ritual Teratai</h1>
         <p class="tagline">Mekarkan teratai, temukan hadiah perawatan Anda.</p>
+        <span class="demo-tag"><i class="fa-solid fa-flask"></i> Demo — tanpa penyimpanan data</span>
     </header>
 
     <!-- STEP 1 — choose where the voucher will be redeemed -->
@@ -77,10 +78,12 @@
         </div>
     </section>
 
-    <!-- Voucher wallet -->
-    <section class="panel" id="wallet-panel" hidden>
-        <div class="step-label"><span class="step-num"><i class="fa-solid fa-wallet"></i></span> Voucher saya</div>
-        <div id="wallet-list"></div>
+    <!-- Session log — in memory only, cleared on reload -->
+    <section class="panel" id="session-panel" hidden>
+        <div class="step-label"><span class="step-num"><i class="fa-solid fa-clock-rotate-left"></i></span> Ritual sesi ini</div>
+        <div class="tally" id="session-tally"></div>
+        <div id="session-list"></div>
+        <p class="fineprint">Hanya tersimpan selama halaman terbuka — muat ulang untuk mulai dari awal.</p>
     </section>
 
     <footer class="foot">
@@ -108,7 +111,8 @@
         </div>
 
         <div class="reveal-actions">
-            <button class="btn primary" id="copy-code"><i class="fa-regular fa-copy"></i> Salin kode</button>
+            <button class="btn primary" id="again"><i class="fa-solid fa-rotate-right"></i> Ritual lagi</button>
+            <button class="btn" id="copy-code"><i class="fa-regular fa-copy"></i> Salin kode</button>
             <button class="btn" id="close-reveal">Selesai</button>
         </div>
         <p class="fineprint" id="terms"></p>
