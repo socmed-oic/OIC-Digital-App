@@ -6,12 +6,23 @@ A comprehensive digital dashboard for Odilia Infinity Corporation (OIC) — cove
 
 ### Built
 
-1. **Meta Ads & AI** (`ads.html`) — upload a Meta Ads CSV/XLSX export or pull from a
-   Google Sheet, then filter by campaign / ad set / ad and date range. Shows spend,
-   impressions, CTR and CPC, a day-to-day trend chart, and breakdown charts for
-   platform, placement and demographics where the export contains those columns.
-   Includes a Gemini-backed chat for data-quality questions, a reporting view with
-   per-campaign aggregation, an AI executive summary, and PDF export.
+1. **Meta Ads** (`ads.html`) — upload Meta Ads CSV/XLSX exports (several at once)
+   or pull from a Google Sheet, then filter by campaign / ad set / ad and date
+   range. Shows spend, impressions, CTR and CPC, a day-to-day trend chart, and
+   breakdown charts for platform, placement and demographics where the export
+   contains those columns. Reporting view aggregates per campaign and exports PDF,
+   with an optional Gemini executive summary.
+
+   **Uploads accumulate.** Each upload merges into the shared dataset rather than
+   replacing it, so the team can add one export per week and keep the history.
+   Rows are identified by `campaign + ad set + ad + day`, so re-uploading an
+   overlapping period updates those rows instead of appending duplicates — without
+   that, spend would silently double. The panel reports how many rows were added
+   versus updated after each file.
+
+   Parsing and cleaning are fully deterministic (SheetJS): the real header row is
+   detected — Meta prefixes exports with title rows — and `TOTAL` summary rows are
+   dropped. No AI is involved in reading your files.
 
 2. **PR & Exposure** (`pr.html`) — paste a news URL and get an estimated article
    reach and earned media value. Two tabs:

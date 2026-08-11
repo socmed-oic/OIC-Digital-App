@@ -41,19 +41,37 @@ create index if not exists pr_articles_date_idx  on public.pr_articles (date des
 create index if not exists pr_articles_brand_idx on public.pr_articles (brand);
 
 -- -----------------------------------------------------------------------------
--- 2. DATASET IKLAN (modul Meta Ads)
--- Satu baris ('current') berisi export yang sedang dipakai tim. Disimpan utuh
--- sebagai jsonb: aplikasi memuat semuanya lalu memfilter di browser, jadi tidak
--- ada keuntungan memecahnya per baris. Postgres tidak punya batas 1 MiB seperti
--- Firestore, sehingga chunking tidak lagi diperlukan.
+-- 2. BARIS IKLAN (modul Meta Ads) — akumulatif
+--
+-- Satu baris tabel = satu baris export Meta. Tim mengunggah banyak CSV dari
+-- waktu ke waktu dan datanya menumpuk, bukan saling menimpa.
+--
+-- `fingerprint` (campaign|adset|ad|tanggal) adalah primary key, sehingga
+-- mengunggah ulang periode yang tumpang-tindih meng-UPDATE baris yang sama,
+-- bukan menambah duplikat. Tanpa ini, spend akan terhitung dobel.
+--
+-- Kolom terekstrak dipakai untuk dedup dan query SQL nanti; `data` menyimpan
+-- baris asli apa adanya karena kolom export Meta berbeda-beda antar akun.
 -- -----------------------------------------------------------------------------
-create table if not exists public.ads_datasets (
-    id         text primary key,
-    filename   text,
-    row_count  integer not null default 0,
-    rows       jsonb   not null default '[]'::jsonb,
-    saved_at   timestamptz not null default now()
+create table if not exists public.ads_rows (
+    fingerprint text primary key,
+    campaign    text,
+    adset       text,
+    ad          text,
+    date        date,
+    data        jsonb not null,
+    source_file text,
+    uploaded_at timestamptz not null default now()
 );
+
+create index if not exists ads_rows_date_idx     on public.ads_rows (date);
+create index if not exists ads_rows_campaign_idx on public.ads_rows (campaign);
+create index if not exists ads_rows_source_idx   on public.ads_rows (source_file);
+
+-- Draf awal memakai satu baris jsonb raksasa (public.ads_datasets). Tabel itu
+-- tidak lagi dipakai aplikasi. Kalau sudah terlanjur dibuat dan Anda yakin
+-- isinya kosong, hapus manual:
+--     drop table if exists public.ads_datasets;
 
 -- -----------------------------------------------------------------------------
 -- 3. KONFIGURASI BERSAMA (CPM, article share, webhook URL)
@@ -75,15 +93,15 @@ create table if not exists public.app_config (
 -- yang dibuat manual di dashboard.
 -- -----------------------------------------------------------------------------
 alter table public.pr_articles  enable row level security;
-alter table public.ads_datasets enable row level security;
+alter table public.ads_rows enable row level security;
 alter table public.app_config   enable row level security;
 
 drop policy if exists "team full access" on public.pr_articles;
 create policy "team full access" on public.pr_articles
     for all to authenticated using (true) with check (true);
 
-drop policy if exists "team full access" on public.ads_datasets;
-create policy "team full access" on public.ads_datasets
+drop policy if exists "team full access" on public.ads_rows;
+create policy "team full access" on public.ads_rows
     for all to authenticated using (true) with check (true);
 
 drop policy if exists "team full access" on public.app_config;
@@ -93,7 +111,7 @@ create policy "team full access" on public.app_config
 -- Cabut hak anon secara eksplisit. RLS sudah menutup akses, ini lapisan kedua
 -- supaya kesalahan policy di masa depan tidak langsung membuka data.
 revoke all on public.pr_articles  from anon;
-revoke all on public.ads_datasets from anon;
+revoke all on public.ads_rows from anon;
 revoke all on public.app_config   from anon;
 
 -- -----------------------------------------------------------------------------
@@ -112,9 +130,9 @@ begin
 
     if not exists (
         select 1 from pg_publication_tables
-        where pubname = 'supabase_realtime' and tablename = 'ads_datasets'
+        where pubname = 'supabase_realtime' and tablename = 'ads_rows'
     ) then
-        alter publication supabase_realtime add table public.ads_datasets;
+        alter publication supabase_realtime add table public.ads_rows;
     end if;
 
     if not exists (
@@ -148,4 +166,4 @@ create trigger app_config_touch before update on public.app_config
 -- =============================================================================
 -- select tablename, rowsecurity as rls_enabled
 -- from pg_tables where schemaname = 'public'
---   and tablename in ('pr_articles','ads_datasets','app_config');
+--   and tablename in ('pr_articles','ads_rows','app_config');
