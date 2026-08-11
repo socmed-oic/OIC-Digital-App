@@ -293,7 +293,18 @@
                             </div>
                         </div>
 
-                        <h3 style="margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">Campaign Breakdown</h3>
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px;">
+                            <h3>Campaign Breakdown</h3>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary); cursor: pointer;">
+                                <input type="checkbox" id="toggle-inactive" checked>
+                                Sembunyikan baris tanpa aktivitas
+                            </label>
+                        </div>
+                        <p id="inactive-note" style="font-size: 0.78rem; color: var(--text-tertiary); margin-bottom: 12px;"></p>
+                        <p style="font-size: 0.78rem; color: var(--text-tertiary); margin-bottom: 12px;">
+                            Arahkan kursor ke baris untuk mengubah nama (pensil) atau menghapus campaign (tong sampah).
+                            Mengubah nama tidak mengubah file sumber; menghapus berlaku untuk seluruh tim dan permanen.
+                        </p>
                         <div style="overflow-x: auto;">
                             <table style="width: 100%; text-align: left; border-collapse: collapse;">
                                 <thead>

@@ -478,7 +478,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             currentParsedData = [...datasetRows.values()];
 
-            fillSelect(campaignSelect, [...new Set(currentParsedData.map(r => strFrom(r, COL.campaign)).filter(Boolean))], 'All Campaigns');
+            fillSelect(campaignSelect,
+                [...new Set(currentParsedData.map(rawCampaign).filter(Boolean))],
+                'All Campaigns', displayCampaign);
             currentDataProfile = {
                 filename: 'Team dataset',
                 totalRows: currentParsedData.length,
@@ -513,6 +515,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!client) return;
             // Supabase requires a filter on delete; every fingerprint is non-null.
             const { error } = await client.from('ads_rows').delete().neq('fingerprint', '');
+            if (error) throw error;
+        }
+
+        /**
+         * Delete every row of one campaign, team-wide.
+         * Filters on the campaign column rather than a list of fingerprints so
+         * the delete still catches rows this browser has not loaded. Unnamed
+         * rows are stored as NULL, which needs .is() — .eq(null) matches nothing
+         * in PostgREST and would silently delete zero rows.
+         */
+        async function deleteCampaignFromCloud(raw) {
+            const client = sb();
+            if (!client) throw new Error('cloud connection unavailable');
+            const query = client.from('ads_rows').delete();
+            const { error } = raw ? await query.eq('campaign', raw) : await query.is('campaign', null);
             if (error) throw error;
         }
 
@@ -754,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // ---------------------------------------------------------------------
 
         /** Repopulate a select, preserving the current choice when still valid. */
-        function fillSelect(select, values, allLabel) {
+        function fillSelect(select, values, allLabel, labelFor) {
             if (!select) return;
             const previous = select.value;
             select.innerHTML = '';
@@ -764,11 +781,63 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(optAll);
             values.forEach(v => {
                 const opt = document.createElement('option');
+                // Value stays the raw name so filtering still matches the data;
+                // only the visible label is aliased.
                 opt.value = v;
-                opt.textContent = v;
+                opt.textContent = labelFor ? labelFor(v) : v;
                 select.appendChild(opt);
             });
             select.value = values.includes(previous) ? previous : 'all';
+        }
+
+        // ---------------------------------------------------------------------
+        // CAMPAIGN ALIASES
+        // Meta exports carry whatever name was typed in Ads Manager, and rows
+        // synced from the master sheet often have no campaign column at all.
+        // Rather than rewriting the source rows — which would be lost on the
+        // next upload and would break the fingerprint dedup — a display-only
+        // alias map is kept in app_config and shared with the team.
+        // ---------------------------------------------------------------------
+        const UNNAMED = '(Tanpa nama)';
+        let campaignAliases = {};
+
+        /** Raw campaign value for a row; '' when the export has no name. */
+        function rawCampaign(row) { return strFrom(row, COL.campaign); }
+
+        /** What the user should see for a raw campaign name. */
+        function displayCampaign(raw) {
+            if (campaignAliases[raw]) return campaignAliases[raw];
+            return raw || UNNAMED;
+        }
+
+        async function saveAliases() {
+            const client = sb();
+            if (!client) throw new Error('cloud connection unavailable');
+            const { error } = await client.from('app_config')
+                .upsert({ key: 'campaign_aliases', value: campaignAliases });
+            if (error) throw error;
+        }
+
+        async function subscribeAliases() {
+            const client = sb();
+            if (!client) return;
+
+            const { data, error } = await client
+                .from('app_config').select('value').eq('key', 'campaign_aliases').maybeSingle();
+            if (!error && data && data.value) {
+                campaignAliases = data.value;
+                filterDataAndRender();
+            }
+
+            client.channel('campaign_aliases_changes')
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'app_config' },
+                    payload => {
+                        if (!payload.new || payload.new.key !== 'campaign_aliases') return;
+                        campaignAliases = payload.new.value || {};
+                        filterDataAndRender();
+                    })
+                .subscribe();
         }
 
         function getFilteredRows() {
@@ -803,7 +872,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const campaign = campaignSelect?.value || 'all';
             const inCampaign = campaign === 'all'
                 ? currentParsedData
-                : currentParsedData.filter(r => strFrom(r, COL.campaign) === campaign);
+                : currentParsedData.filter(r => rawCampaign(r) === campaign);
 
             fillSelect(adsetSelect, [...new Set(inCampaign.map(r => strFrom(r, COL.adset)).filter(Boolean))], 'All Ad Sets');
 
@@ -865,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // a lifetime export can be thousands of lines long.
                     const byCampaign = new Map();
                     filtered.forEach(row => {
-                        const name = strFrom(row, COL.campaign) || 'Unknown';
+                        const name = rawCampaign(row);
                         if (!byCampaign.has(name)) byCampaign.set(name, { spend: 0, imp: 0, clicks: 0 });
                         const c = byCampaign.get(name);
                         c.spend += numFrom(row, COL.spend);
@@ -873,23 +942,163 @@ document.addEventListener('DOMContentLoaded', () => {
                         c.clicks += numFrom(row, COL.clicks);
                     });
 
-                    [...byCampaign.entries()]
-                        .sort((a, b) => b[1].spend - a[1].spend)
-                        .forEach(([name, c]) => {
-                            const cpc = c.clicks > 0 ? c.spend / c.clicks : 0;
-                            const tr = document.createElement('tr');
-                            tr.style.borderBottom = '1px solid #eceae6';
-                            [name, `Rp ${formatNumber(c.spend)}`, formatNumber(c.imp), formatNumber(c.clicks), `Rp ${formatNumber(cpc)}`]
-                                .forEach(text => {
-                                    const td = document.createElement('td');
-                                    td.style.padding = '12px 8px';
-                                    td.textContent = text; // textContent, not innerHTML — campaign names are user data
-                                    tr.appendChild(td);
-                                });
-                            reportTableBody.appendChild(tr);
-                        });
+                    // Spreadsheets often carry annotation rows below the data
+                    // ("SUMMARY", "Efisiensi Biaya"). They parse as campaigns
+                    // with no spend, impressions or clicks. Hide them by
+                    // default but report the count — never drop rows silently.
+                    let entries = [...byCampaign.entries()].sort((a, b) => b[1].spend - a[1].spend);
+                    const inactive = entries.filter(([, c]) => !c.spend && !c.imp && !c.clicks);
+                    if (hideInactive) entries = entries.filter(([, c]) => c.spend || c.imp || c.clicks);
+
+                    const note = document.getElementById('inactive-note');
+                    if (note) {
+                        note.textContent = inactive.length
+                            ? `${inactive.length} baris tanpa aktivitas ${hideInactive ? 'disembunyikan' : 'ditampilkan'}.`
+                            : '';
+                    }
+
+                    entries.forEach(([name, c]) => {
+                        const cpc = c.clicks > 0 ? c.spend / c.clicks : 0;
+                        const tr = document.createElement('tr');
+                        tr.style.borderBottom = '1px solid #eceae6';
+
+                        // Name cell carries the rename control.
+                        const nameCell = document.createElement('td');
+                        nameCell.style.padding = '12px 8px';
+                        nameCell.appendChild(campaignNameCell(name));
+                        tr.appendChild(nameCell);
+
+                        [`Rp ${formatNumber(c.spend)}`, formatNumber(c.imp), formatNumber(c.clicks), `Rp ${formatNumber(cpc)}`]
+                            .forEach(text => {
+                                const td = document.createElement('td');
+                                td.style.padding = '12px 8px';
+                                td.textContent = text; // textContent — campaign data is untrusted
+                                tr.appendChild(td);
+                            });
+                        reportTableBody.appendChild(tr);
+                    });
                 }
             }
+        }
+
+        /**
+         * Campaign name cell: label + rename control, swapping to an inline
+         * input on demand. Renaming is display-only — the underlying rows keep
+         * their original name so a re-upload still dedupes against them.
+         */
+        function campaignNameCell(raw) {
+            const wrap = document.createElement('div');
+            wrap.className = 'campaign-cell';
+
+            const label = document.createElement('span');
+            label.className = 'campaign-label';
+            label.textContent = displayCampaign(raw);
+            if (campaignAliases[raw]) {
+                label.title = `Nama asli: ${raw || '(kosong di file)'}`;
+                label.classList.add('renamed');
+            } else if (!raw) {
+                label.title = 'Baris ini tidak punya nama campaign di file sumber. Klik ikon pensil untuk memberi nama.';
+            }
+
+            const edit = document.createElement('button');
+            edit.className = 'rename-btn';
+            edit.type = 'button';
+            edit.title = 'Ubah nama tampilan';
+            edit.setAttribute('aria-label', `Ubah nama untuk ${displayCampaign(raw)}`);
+            edit.innerHTML = '<i class="fa-solid fa-pen"></i>';
+
+            function startEdit() {
+                const input = document.createElement('input');
+                input.className = 'rename-input';
+                input.value = displayCampaign(raw) === UNNAMED ? '' : displayCampaign(raw);
+                input.placeholder = 'Nama campaign';
+                input.setAttribute('aria-label', 'Nama campaign baru');
+
+                let settled = false;
+                const commit = async () => {
+                    if (settled) return;
+                    settled = true;
+                    const next = input.value.trim();
+
+                    if (!next || next === raw) delete campaignAliases[raw];
+                    else campaignAliases[raw] = next;
+
+                    filterDataAndRender();   // optimistic; snapshot will confirm
+                    try {
+                        await saveAliases();
+                    } catch (err) {
+                        console.error('Alias save failed:', err);
+                        alert('Nama tersimpan sementara di layar ini, tetapi GAGAL disimpan ke cloud: ' +
+                              (err.message || err) + '\n\nRekan tim belum melihat perubahan ini.');
+                    }
+                };
+                const cancel = () => { if (!settled) { settled = true; filterDataAndRender(); } };
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+                    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+                });
+                input.addEventListener('blur', commit);
+
+                wrap.replaceChildren(input);
+                input.focus();
+                input.select();
+            }
+
+            const del = document.createElement('button');
+            del.className = 'rename-btn danger';
+            del.type = 'button';
+            del.title = 'Hapus campaign ini dari dataset tim';
+            del.setAttribute('aria-label', `Hapus ${displayCampaign(raw)}`);
+            del.innerHTML = '<i class="fa-solid fa-trash"></i>';
+
+            del.addEventListener('click', async () => {
+                const affected = currentParsedData.filter(r => rawCampaign(r) === raw);
+                const spend = affected.reduce((s, r) => s + numFrom(r, COL.spend), 0);
+
+                if (!confirm(
+                    `Hapus "${displayCampaign(raw)}"?\n\n` +
+                    `${affected.length} baris · total spend Rp ${formatNumber(spend)}\n\n` +
+                    'Data ini dihapus untuk SELURUH TIM dan tidak bisa dikembalikan. ' +
+                    'Mengunggah ulang file sumbernya akan memunculkannya kembali.'
+                )) return;
+
+                del.disabled = true;
+                del.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                try {
+                    await deleteCampaignFromCloud(raw);
+
+                    // Drop locally too: the realtime echo is suppressed for our
+                    // own writes, so nothing else would refresh this view.
+                    [...datasetRows.entries()].forEach(([fp, row]) => {
+                        if (rawCampaign(row) === raw) datasetRows.delete(fp);
+                    });
+                    currentParsedData = [...datasetRows.values()];
+
+                    if (campaignAliases[raw]) { delete campaignAliases[raw]; saveAliases().catch(() => {}); }
+                    if (campaignSelect && campaignSelect.value === raw) campaignSelect.value = 'all';
+
+                    fillSelect(campaignSelect,
+                        [...new Set(currentParsedData.map(rawCampaign).filter(Boolean))],
+                        'All Campaigns', displayCampaign);
+
+                    renderDatasetPanel();
+                    filterDataAndRender();
+                    setUploadStatus(`"${displayCampaign(raw)}" dihapus — ${affected.length} baris.`);
+                } catch (err) {
+                    console.error('Delete campaign failed:', err);
+                    alert('Gagal menghapus: ' + (err.message || err));
+                    filterDataAndRender();
+                }
+            });
+
+            edit.addEventListener('click', startEdit);
+            label.addEventListener('dblclick', startEdit);
+
+            wrap.appendChild(label);
+            wrap.appendChild(edit);
+            wrap.appendChild(del);
+            return wrap;
         }
 
         // Attached once, at startup. The old code re-attached this inside
@@ -897,6 +1106,18 @@ document.addEventListener('DOMContentLoaded', () => {
         [campaignSelect, adsetSelect, adSelect].forEach(sel => {
             if (sel) sel.addEventListener('change', filterDataAndRender);
         });
+
+        // Inactive-row visibility. Default hidden: annotation rows with zero
+        // spend are noise in a spend report, but the count stays on screen.
+        let hideInactive = true;
+        const inactiveToggle = document.getElementById('toggle-inactive');
+        if (inactiveToggle) {
+            inactiveToggle.checked = hideInactive;
+            inactiveToggle.addEventListener('change', () => {
+                hideInactive = inactiveToggle.checked;
+                filterDataAndRender();
+            });
+        }
 
         /**
          * Merge a freshly parsed file into the accumulated dataset.
@@ -996,7 +1217,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 columns.forEach(col => { if (!row[col] && row[col] !== 0) blankCount++; });
             });
 
-            fillSelect(campaignSelect, [...new Set(currentParsedData.map(r => strFrom(r, COL.campaign)).filter(Boolean))], 'All Campaigns');
+            fillSelect(campaignSelect,
+                [...new Set(currentParsedData.map(rawCampaign).filter(Boolean))],
+                'All Campaigns', displayCampaign);
 
             currentDataProfile = {
                 filename,
@@ -1396,6 +1619,7 @@ Write a 3-paragraph executive summary covering best performing campaigns, areas 
         if (window.OICBackend) {
             window.OICBackend.whenAuthed(() => {
                 subscribeCloudDataset().catch(err => console.error('Cloud subscription failed:', err));
+                subscribeAliases().catch(err => console.error('Alias subscription failed:', err));
             });
         }
     }
