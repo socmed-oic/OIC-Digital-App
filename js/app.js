@@ -129,8 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         function submitPin() {
             if (submitting || currentPin.length !== PIN_LENGTH) return;
 
-            const fb = window.OICFirebase;
-            if (!fb) {
+            const backend = window.OICBackend;
+            if (!backend) {
                 showPinError('Sign-in service failed to load — check your connection.');
                 return;
             }
@@ -138,15 +138,21 @@ document.addEventListener('DOMContentLoaded', () => {
             submitting = true;
             if (errorMsg) errorMsg.textContent = 'Checking...';
 
-            fb.signInWithPin(currentPin)
+            backend.signInWithPin(currentPin)
                 .then(() => { window.location.href = 'hub.html'; })
                 .catch((err) => {
                     submitting = false;
-                    const code = (err && err.code) || '';
+                    const text = String((err && err.message) || '').toLowerCase();
+                    const status = err && err.status;
+
                     let message = 'Incorrect PIN';
-                    if (code === 'auth/too-many-requests') message = 'Too many attempts — wait a few minutes and try again.';
-                    else if (code === 'auth/network-request-failed') message = 'Network error — check your connection.';
-                    else if (code === 'auth/user-not-found' || code === 'auth/invalid-email') message = 'Team account is not set up in Firebase yet.';
+                    if (status === 429 || text.includes('rate limit') || text.includes('too many')) {
+                        message = 'Too many attempts — wait a few minutes and try again.';
+                    } else if (text.includes('failed to fetch') || text.includes('network')) {
+                        message = 'Network error — check your connection.';
+                    } else if (text.includes('email not confirmed')) {
+                        message = 'Team account is not confirmed yet in Supabase.';
+                    }
                     showPinError(message);
                 });
         }
@@ -210,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const signOutBtn = document.getElementById('hub-signout');
         if (signOutBtn) {
             signOutBtn.addEventListener('click', () => {
-                if (window.OICFirebase) window.OICFirebase.signOut();
+                if (window.OICBackend) window.OICBackend.signOut();
                 else window.location.href = 'index.html';
             });
         }
@@ -351,44 +357,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (masterSyncBtn) masterSyncBtn.addEventListener('click', () => pullMasterData(true));
 
         // ---------------------------------------------------------------------
-        // TEAM CLOUD DATASET (Firestore)
-        // The current Meta export is shared team-wide: a meta doc at
-        // ads_data/current plus row chunks in its `chunks` subcollection.
-        // Chunking exists because a Firestore doc caps at 1 MiB and because it
-        // keeps read counts low (one chunk = hundreds of rows = one read).
+        // TEAM CLOUD DATASET (Supabase)
+        // The current Meta export is shared team-wide as one row in
+        // ads_datasets. Postgres has no per-row size limit worth worrying about
+        // here, so the whole export is stored as a single jsonb value — the app
+        // loads it all and filters in the browser anyway.
         // ---------------------------------------------------------------------
-        const CLOUD_CHUNK_ROWS = 400;
+        const ADS_DATASET_ID = 'current';
         let lastAppliedStamp = null; // suppresses the echo of our own writes
 
-        function cloudRefs() {
-            const fb = window.OICFirebase;
-            if (!fb || !fb.db) return null;
-            const meta = fb.db.collection('ads_data').doc('current');
-            return { meta, chunks: meta.collection('chunks') };
+        function sb() {
+            const backend = window.OICBackend;
+            return backend ? backend.client : null;
         }
 
         async function saveDatasetToCloud(rows, filename) {
-            const refs = cloudRefs();
-            if (!refs || rows.length === 0) return;
+            const client = sb();
+            if (!client || rows.length === 0) return;
             try {
-                const stamp = Date.now();
-                const old = await refs.chunks.get();
-                const batch = window.OICFirebase.db.batch();
-                old.docs.forEach(d => batch.delete(refs.chunks.doc(d.id)));
-                for (let i = 0; i * CLOUD_CHUNK_ROWS < rows.length; i++) {
-                    batch.set(refs.chunks.doc(String(i)), {
-                        json: JSON.stringify(rows.slice(i * CLOUD_CHUNK_ROWS, (i + 1) * CLOUD_CHUNK_ROWS)),
-                    });
-                }
+                const stamp = new Date().toISOString();
                 lastAppliedStamp = stamp;
-                batch.set(refs.meta, {
+
+                const { error } = await client.from('ads_datasets').upsert({
+                    id: ADS_DATASET_ID,
                     filename,
-                    stamp,
-                    rowCount: rows.length,
-                    chunkCount: Math.ceil(rows.length / CLOUD_CHUNK_ROWS),
-                    savedAt: new Date().toISOString(),
+                    row_count: rows.length,
+                    rows,
+                    saved_at: stamp,
                 });
-                await batch.commit();
+                if (error) throw error;
+
                 if (chatLog && chatInterface && chatInterface.style.display !== 'none') {
                     addChatMessage('AI', `Dataset saved to the team cloud (${rows.length} rows) — teammates will see it live.`);
                 }
@@ -398,28 +396,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        async function loadCloudDataset(metaData) {
-            const refs = cloudRefs();
-            if (!refs) return;
-            const snap = await refs.chunks.get();
-            const rows = [...snap.docs]
-                .sort((a, b) => Number(a.id) - Number(b.id))
-                .flatMap(d => JSON.parse(d.data().json));
-            if (rows.length > 0) {
-                handleParsedData(rows, Object.keys(rows[0]), metaData.filename || 'Team dataset', { fromCloud: true });
-            }
+        function applyCloudDataset(record) {
+            if (!record || !Array.isArray(record.rows) || record.rows.length === 0) return;
+            handleParsedData(record.rows, Object.keys(record.rows[0]),
+                record.filename || 'Team dataset', { fromCloud: true });
         }
 
-        function subscribeCloudDataset() {
-            const refs = cloudRefs();
-            if (!refs) return;
-            refs.meta.onSnapshot(doc => {
-                if (!doc.exists) return;
-                const data = doc.data();
-                if (!data || data.stamp === lastAppliedStamp) return;
-                lastAppliedStamp = data.stamp;
-                loadCloudDataset(data).catch(err => console.error('Cloud dataset load failed:', err));
-            }, err => console.error('Cloud dataset subscription error:', err));
+        async function subscribeCloudDataset() {
+            const client = sb();
+            if (!client) return;
+
+            // Initial load, then live updates. maybeSingle() tolerates the row
+            // not existing yet (nobody has uploaded an export).
+            const { data, error } = await client
+                .from('ads_datasets').select('*').eq('id', ADS_DATASET_ID).maybeSingle();
+
+            if (error) console.error('Cloud dataset load failed:', error);
+            else if (data) { lastAppliedStamp = data.saved_at; applyCloudDataset(data); }
+
+            client.channel('ads_datasets_changes')
+                .on('postgres_changes',
+                    { event: '*', schema: 'public', table: 'ads_datasets' },
+                    payload => {
+                        const record = payload.new;
+                        if (!record || record.id !== ADS_DATASET_ID) return;
+                        if (record.saved_at === lastAppliedStamp) return; // our own write
+                        lastAppliedStamp = record.saved_at;
+                        applyCloudDataset(record);
+                    })
+                .subscribe();
         }
 
         // ---------------------------------------------------------------------
@@ -1221,8 +1226,10 @@ Write a 3-paragraph executive summary covering best performing campaigns, areas 
         // ---------------------------------------------------------------------
         updateReportDateLabel();
         renderEmptyDashboard();
-        if (window.OICFirebase) {
-            window.OICFirebase.whenAuthed(() => subscribeCloudDataset());
+        if (window.OICBackend) {
+            window.OICBackend.whenAuthed(() => {
+                subscribeCloudDataset().catch(err => console.error('Cloud subscription failed:', err));
+            });
         }
     }
 });

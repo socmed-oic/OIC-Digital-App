@@ -285,40 +285,87 @@ document.addEventListener('DOMContentLoaded', () => {
     let editingId = null;
     let previewSite = null;   // last URL-preview estimate, reused on save
 
-    // ---- team cloud helpers (Firestore) ----
+    // ---- team cloud helpers (Supabase) ----
 
-    function prCol() {
-        const fb = window.OICFirebase;
-        return (fb && fb.db) ? fb.db.collection('pr_articles') : null;
+    function sb() {
+        const backend = window.OICBackend;
+        return backend ? backend.client : null;
     }
 
-    function configDoc() {
-        const fb = window.OICFirebase;
-        return (fb && fb.db) ? fb.db.collection('config').doc('pr') : null;
+    /**
+     * The app uses camelCase objects; Postgres uses snake_case columns. These
+     * two functions are the only place that translation happens.
+     */
+    function toRow(a) {
+        return {
+            id: a.id,
+            url: a.url,
+            domain: a.domain || null,
+            title: a.title || null,
+            outlet: a.outlet || null,
+            date: a.date || null,   // '' would be rejected by the date column
+            brand: a.brand || null,
+            placement: a.placement || null,
+            sentiment: a.sentiment || null,
+            pr_cost: a.prCost || 0,
+            actual_views: a.actualViews || 0,
+            notes: a.notes || null,
+            site: a.site || null,
+            est_views: (a.estViews === undefined) ? null : a.estViews,
+            emv: (a.emv === undefined) ? null : a.emv,
+            views_basis: a.viewsBasis || null,
+            created_at: a.createdAt || new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        };
     }
 
-    /** Upsert one article to the team cloud; the snapshot listener rerenders. */
+    function fromRow(r) {
+        return {
+            id: r.id,
+            url: r.url,
+            domain: r.domain || '',
+            title: r.title || '',
+            outlet: r.outlet || '',
+            date: r.date || '',
+            brand: r.brand || '',
+            placement: r.placement || 'standard',
+            sentiment: r.sentiment || '',
+            prCost: Number(r.pr_cost) || 0,
+            actualViews: Number(r.actual_views) || 0,
+            notes: r.notes || '',
+            site: r.site || null,
+            estViews: r.est_views === null ? null : Number(r.est_views),
+            emv: r.emv === null ? null : Number(r.emv),
+            viewsBasis: r.views_basis || 'unknown',
+            createdAt: r.created_at,
+            updatedAt: r.updated_at,
+        };
+    }
+
+    /** Upsert one article; the realtime subscription triggers the rerender. */
     async function cloudSaveArticle(article) {
-        const col = prCol();
-        if (!col) throw new Error('cloud connection unavailable');
-        await col.doc(article.id).set(article);
+        const client = sb();
+        if (!client) throw new Error('cloud connection unavailable');
+        const { error } = await client.from('pr_articles').upsert(toRow(article));
+        if (error) throw error;
     }
 
     async function cloudDeleteArticle(id) {
-        const col = prCol();
-        if (!col) throw new Error('cloud connection unavailable');
-        await col.doc(id).delete();
+        const client = sb();
+        if (!client) throw new Error('cloud connection unavailable');
+        const { error } = await client.from('pr_articles').delete().eq('id', id);
+        if (error) throw error;
     }
 
-    /** Batched upsert for import/migration paths (Firestore caps batches at 500 ops). */
+    /** Chunked upsert for import/migration paths. */
     async function cloudSaveMany(list) {
-        const col = prCol();
-        if (!col) throw new Error('cloud connection unavailable');
+        const client = sb();
+        if (!client) throw new Error('cloud connection unavailable');
         const unique = [...new Map(list.map(a => [a.id, a])).values()];
-        for (let i = 0; i < unique.length; i += 450) {
-            const batch = window.OICFirebase.db.batch();
-            unique.slice(i, i + 450).forEach(a => batch.set(col.doc(a.id), a));
-            await batch.commit();
+        for (let i = 0; i < unique.length; i += 500) {
+            const { error } = await client.from('pr_articles')
+                .upsert(unique.slice(i, i + 500).map(toRow));
+            if (error) throw error;
         }
     }
 
@@ -1239,8 +1286,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // saver writes the recomputed articles — teammates receive them via
             // the snapshot, so remote config changes never trigger write storms.
             try {
-                const cfgRef = configDoc();
-                if (cfgRef) await cfgRef.set(config);
+                const client = sb();
+                if (client) {
+                    const { error } = await client.from('app_config')
+                        .upsert({ key: 'pr', value: config });
+                    if (error) throw error;
+                }
 
                 const recomputed = articles.filter(a => a.site);
                 recomputed.forEach(a => Object.assign(a, computeArticle(a, a.site, config)));
@@ -1372,69 +1423,106 @@ document.addEventListener('DOMContentLoaded', () => {
     let migrationRan = false;
     let legacyFixRan = false;
 
-    function subscribeArticles() {
-        const col = prCol();
-        if (!col) return;
-        col.onSnapshot(snap => {
-            articles = snap.docs.map(d => d.data());
-
-            // Mirror the count for the hub card (read synchronously by app.js).
-            try { localStorage.setItem('pr_articles_count', String(articles.length)); } catch (e) { /* full/blocked */ }
-
-            // One-time move of pre-cloud records from this browser's storage.
-            if (!migrationRan) {
-                migrationRan = true;
-                const backup = store.get('pr_articles', []);
-                const alreadyMigrated = store.get('pr_migrated_to_cloud', false);
-                if (snap.empty && backup.length > 0 && !alreadyMigrated) {
-                    setSyncStatus(`Migrating ${backup.length} locally stored article(s) to the team cloud...`);
-                    cloudSaveMany(backup)
-                        .then(() => {
-                            store.set('pr_migrated_to_cloud', true);
-                            setSyncStatus(`Migrated ${backup.length} article(s) to the team cloud. They are kept in this browser as a backup.`);
-                        })
-                        .catch(err => setSyncStatus(`Migration failed: ${err.message}`, true));
-                }
-            }
-
-            // One-time rename of entries saved under the pre-portfolio
-            // placeholder brand names.
-            if (!legacyFixRan) {
-                const legacy = articles.filter(a => LEGACY_BRANDS[a.brand]);
-                if (legacy.length > 0) {
-                    legacyFixRan = true;
-                    legacy.forEach(a => {
-                        a.brand = LEGACY_BRANDS[a.brand];
-                        a.updatedAt = new Date().toISOString();
-                    });
-                    cloudSaveMany(legacy).catch(err => console.error('Brand migration failed:', err));
-                }
-            }
-
-            renderAll();
-        }, err => {
-            console.error('Articles subscription error:', err);
-            // Surface on BOTH tabs — the directory status line is invisible
-            // from the tracker, and a denied subscription otherwise looks like
-            // an empty directory.
-            const hint = err.code === 'permission-denied'
-                ? 'Live sync blocked: Firestore rules reject the team account. Update the rules to allow team@oic-digital.app.'
-                : `Live sync error: ${err.message}`;
-            setSyncStatus(hint, true);
-            setPreview(hint, true);
-        });
+    function reportSyncError(err) {
+        console.error('Articles sync error:', err);
+        // Surface on BOTH tabs — the directory status line is invisible from
+        // the tracker, and a blocked query otherwise looks like an empty
+        // directory rather than a failure.
+        const text = String((err && err.message) || err).toLowerCase();
+        const hint = (text.includes('permission') || text.includes('row-level') || text.includes('policy'))
+            ? 'Live sync blocked by Row Level Security. Run supabase/schema.sql and make sure you are signed in.'
+            : (text.includes('does not exist') || text.includes('schema cache'))
+                ? 'Tables not found — run supabase/schema.sql in the Supabase SQL Editor first.'
+                : `Live sync error: ${err.message || err}`;
+        setSyncStatus(hint, true);
+        setPreview(hint, true);
     }
 
-    function subscribeConfig() {
-        const doc = configDoc();
-        if (!doc) return;
-        doc.onSnapshot(snap => {
-            if (!snap.exists) return;
-            config = Object.assign({}, DEFAULT_CONFIG, snap.data());
+    function applyArticles(rows) {
+        articles = rows.map(fromRow);
+
+        // Mirror the count for the hub card (read synchronously by app.js).
+        try { localStorage.setItem('pr_articles_count', String(articles.length)); } catch (e) { /* full/blocked */ }
+
+        // One-time move of pre-cloud records from this browser's storage.
+        if (!migrationRan) {
+            migrationRan = true;
+            const backup = store.get('pr_articles', []);
+            const alreadyMigrated = store.get('pr_migrated_to_cloud', false);
+            if (articles.length === 0 && backup.length > 0 && !alreadyMigrated) {
+                setSyncStatus(`Migrating ${backup.length} locally stored article(s) to the team cloud...`);
+                cloudSaveMany(backup)
+                    .then(() => {
+                        store.set('pr_migrated_to_cloud', true);
+                        setSyncStatus(`Migrated ${backup.length} article(s) to the team cloud. They are kept in this browser as a backup.`);
+                        return refreshArticles();
+                    })
+                    .catch(err => setSyncStatus(`Migration failed: ${err.message}`, true));
+            }
+        }
+
+        // One-time rename of entries saved under the pre-portfolio placeholder
+        // brand names.
+        if (!legacyFixRan) {
+            const legacy = articles.filter(a => LEGACY_BRANDS[a.brand]);
+            if (legacy.length > 0) {
+                legacyFixRan = true;
+                legacy.forEach(a => { a.brand = LEGACY_BRANDS[a.brand]; });
+                cloudSaveMany(legacy).catch(err => console.error('Brand migration failed:', err));
+            }
+        }
+
+        renderAll();
+    }
+
+    async function refreshArticles() {
+        const client = sb();
+        if (!client) return;
+        const { data, error } = await client.from('pr_articles').select('*');
+        if (error) { reportSyncError(error); return; }
+        applyArticles(data || []);
+    }
+
+    async function subscribeArticles() {
+        const client = sb();
+        if (!client) return;
+
+        await refreshArticles();
+
+        // Postgres changes arrive per-row; refetching the (small) table keeps
+        // local state consistent without hand-merging inserts/updates/deletes.
+        client.channel('pr_articles_changes')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'pr_articles' },
+                () => { refreshArticles().catch(reportSyncError); })
+            .subscribe();
+    }
+
+    async function subscribeConfig() {
+        const client = sb();
+        if (!client) return;
+
+        const { data, error } = await client
+            .from('app_config').select('value').eq('key', 'pr').maybeSingle();
+
+        if (!error && data && data.value) {
+            config = Object.assign({}, DEFAULT_CONFIG, data.value);
             store.set('pr_config', config); // local mirror for pre-auth boots
             loadConfigIntoInputs();
             renderAll();
-        }, err => console.error('Config subscription error:', err));
+        }
+
+        client.channel('app_config_changes')
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'app_config' },
+                payload => {
+                    if (!payload.new || payload.new.key !== 'pr') return;
+                    config = Object.assign({}, DEFAULT_CONFIG, payload.new.value);
+                    store.set('pr_config', config);
+                    loadConfigIntoInputs();
+                    renderAll();
+                })
+            .subscribe();
     }
 
     populateBrandSelects();
@@ -1442,10 +1530,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConfigIntoInputs();
     renderAll(); // empty states until the cloud subscription delivers
 
-    if (window.OICFirebase) {
-        window.OICFirebase.whenAuthed(() => {
-            subscribeConfig();
-            subscribeArticles();
+    if (window.OICBackend) {
+        window.OICBackend.whenAuthed(() => {
+            subscribeConfig().catch(err => console.error('Config subscription failed:', err));
+            subscribeArticles().catch(reportSyncError);
         });
     } else {
         setSyncStatus('Cloud connection unavailable — records cannot be saved. Reload the page once you are online.', true);

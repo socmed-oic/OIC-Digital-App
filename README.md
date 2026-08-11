@@ -60,7 +60,7 @@ treat the output as order-of-magnitude until there are roughly ten anchors.
 - **CSS3**: Clean light theme — warm off-white background, white cards, `Plus Jakarta Sans` throughout, OIC brown as the accent color. Design tokens live in `:root` in `css/style.css`. (Class names like `.glass-card` are legacy from the earlier glassmorphism skin.)
 - **JavaScript**: App logic and interactivity.
 - **Chart.js**: Dynamic data visualization.
-- **Firebase (compat SDK)**: shared team auth + live-synced Firestore storage,
+- **Supabase (UMD SDK)**: shared team auth + live-synced Postgres storage,
   loaded from the CDN — still no build step.
 - **FontAwesome**: Scalable vector icons.
 
@@ -85,21 +85,28 @@ Both settings live in `localStorage` and are entered in the app under
 - **Google Apps Script webhook URL** — required for master-data sync. Deploy the
   Apps Script as a Web App with "Who has access" set to **Anyone**.
 
-## Auth & team data (Firebase)
+## Auth & team data (Supabase)
 
-- **Sign-in**: the 6-digit team PIN is the password of one shared Firebase Auth
+Setup lives in [`supabase/schema.sql`](supabase/schema.sql) — run it once in the
+Supabase SQL Editor. It creates the tables, enables Row Level Security, and adds
+the tables to the realtime publication.
+
+- **Sign-in**: the 6-digit team PIN is the password of one shared Supabase Auth
   account (`team@oic-digital.app`), verified server-side. It does not appear in
-  this repository. Firestore security rules only accept that account, so the
-  database rejects everyone else. Rotate the PIN by changing the account
-  password in the Firebase console.
+  this repository. Rotate it by changing the account password in the Supabase
+  dashboard. **Signups must be disabled** — otherwise anyone could register and
+  satisfy the RLS policies.
 - **Team cloud**: news/PR records (`pr_articles`), the shared estimation config
-  (`config/pr`), and the current ads dataset (`ads_data/current` + row chunks)
-  live in Firestore with live sync — teammates see each other's changes within
-  seconds. Firestore's offline cache keeps pages working through connection
-  drops. Records created before the cloud existed migrate from `localStorage`
+  (`app_config`), and the current ads dataset (`ads_datasets`) live in Postgres
+  with realtime sync — teammates see each other's changes within seconds.
+  Records created before the cloud existed migrate from `localStorage`
   automatically on first load.
-- The `firebaseConfig` in `js/firebase-init.js` is public by design — it only
-  identifies the project. Access control lives in Auth plus the rules.
+- The anon key in `js/supabase-init.js` is public by design — it only identifies
+  the project. **RLS is the actual protection.** The `service_role` key and the
+  database password grant unrestricted access and must never appear in this
+  repository or anywhere in the client-side app.
+- The app uses camelCase, Postgres uses snake_case; `toRow()` / `fromRow()` in
+  `js/pr.js` are the only place that translation happens.
 
 ## Known limitations
 
