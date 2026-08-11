@@ -44,6 +44,31 @@ A comprehensive digital dashboard for Odilia Infinity Corporation (OIC) — cove
    Estimated, or Unestimated — and estimates should be read as
    order-of-magnitude. Domain lookups are cached locally for 7 days.
 
+### Customer-facing
+
+**Ritual Teratai** (`gacha-oic.html`, served at `/gacha-oic`) — a spa-themed
+gacha promo. A lotus floats on dark water; the visitor presses and holds to
+light the ritual, the petals bloom, and a discount voucher is revealed.
+
+- Prizes and odds are declared once in `PRIZES` at the top of `js/gacha.js`,
+  and the same array drives the odds table shown to visitors. Defaults:
+  50% off (2%), Rp 25.000 off (18%), 10% off (30%), 5% off (50%).
+- One ritual per device per day (`PULLS_PER_DAY`); vouchers last 30 days
+  (`VOUCHER_DAYS`). Codes read as `OIC-TIER-XXXXX` and omit 0/O/1/I so staff can
+  read them aloud.
+- **Deliberately public** — no Supabase, no auth. This page must never load
+  `js/supabase-init.js`, which redirects unauthenticated visitors to the team
+  login. It has its own dark stylesheet (`css/gacha.css`); the brand logos are
+  white-on-transparent and only read on a dark surface.
+
+> **The draw runs in the browser.** A determined visitor can edit `localStorage`
+> or the odds and mint themselves a code, so a code must be worth nothing until
+> an outlet honours it — staff have to validate against issued vouchers. If these
+> ever carry unattended value, move the draw server-side (a Supabase edge
+> function writing to an `issued_vouchers` table) before running the promo.
+
+Brand logos live in `img/brands/`, extracted from the 2026 company profile deck.
+
 ### Planned (hub cards are placeholders, not yet implemented)
 
 3. **Content Planning** — trend radar, strategy mix, content calendar.
