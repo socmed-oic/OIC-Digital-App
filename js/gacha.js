@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
         {
             id: 'grand', weight: 2, tier: 'Sanctuary', rarity: 'Legendary',
             value: '50%', label: 'Diskon 50%', color: '#f0c869',
-            sub: 'Hadiah utama. Ritual paling langka — nikmati perawatan lengkap dengan setengah harga.',
+            sub: 'Hadiah utama. Ritual paling langka. Nikmati perawatan lengkap dengan setengah harga.',
         },
         {
             id: 'cash25', weight: 18, tier: 'Serenity', rarity: 'Rare',
@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Say plainly that this is a sample. Nothing is recorded, so a visitor
         // must not walk away believing they hold a redeemable discount.
         el('terms').textContent =
-            'Contoh tampilan voucher — ini demo, kode tidak tersimpan dan belum berlaku di outlet.';
+            'Contoh tampilan voucher. Ini demo, kode tidak tersimpan dan belum berlaku di outlet.';
 
         reveal.hidden = false;
         el('close-reveal').focus();
@@ -453,6 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================================================================
     setCharge(0);
     setLotusOpen(false);
-    quotaNote.textContent = 'Mode demo — mainkan sebanyak yang Anda mau.';
+    quotaNote.textContent = 'Mode demo. Mainkan sebanyak yang Anda mau.';
     renderSession();
 });
