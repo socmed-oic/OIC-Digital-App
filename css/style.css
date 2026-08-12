@@ -908,9 +908,39 @@ h1, h2, h3, h4, h5, h6 {
 /* Long campaign names should not blow out the report table width. */
 #report-table-body td:first-child {
     max-width: 320px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+/* Campaign rename control */
+.campaign-cell { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.campaign-label {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Aliased names get a subtle marker so nobody forgets the file says otherwise */
+.campaign-label.renamed { border-bottom: 1px dashed var(--border-strong); cursor: help; }
+
+.rename-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 4px 6px; border-radius: var(--radius-sm);
+    font-size: 0.75rem; line-height: 1;
+    opacity: 0; transition: var(--transition);
+    flex: none;
+}
+#report-table-body tr:hover .rename-btn { opacity: 1; }
+.rename-btn:hover { color: var(--brand); background: var(--brand-soft); }
+.rename-btn:focus-visible { opacity: 1; outline: 2px solid var(--brand); outline-offset: 2px; }
+.rename-btn.danger:hover { color: var(--red); background: var(--red-soft); }
+.rename-btn:disabled { opacity: 1; cursor: wait; }
+
+.rename-input {
+    width: 100%; max-width: 300px;
+    font-family: inherit; font-size: 0.9rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--brand);
+    border-radius: var(--radius-sm);
+    padding: 6px 10px; outline: none;
+    box-shadow: 0 0 0 3px var(--brand-soft);
 }
 
 @media (prefers-reduced-motion: reduce) {
