@@ -108,6 +108,15 @@ drop policy if exists "team full access" on public.app_config;
 create policy "team full access" on public.app_config
     for all to authenticated using (true) with check (true);
 
+-- Grant table level privileges to the signed in role explicitly. RLS decides
+-- WHICH rows a session may touch, but Postgres still checks table privileges
+-- first, and a table with policies but no GRANT rejects every query with
+-- 42501 before any policy is evaluated. Relying on Supabase default privileges
+-- is fragile, so state it here.
+grant select, insert, update, delete on public.pr_articles  to authenticated;
+grant select, insert, update, delete on public.ads_rows     to authenticated;
+grant select, insert, update, delete on public.app_config   to authenticated;
+
 -- Cabut hak anon secara eksplisit. RLS sudah menutup akses, ini lapisan kedua
 -- supaya kesalahan policy di masa depan tidak langsung membuka data.
 revoke all on public.pr_articles  from anon;

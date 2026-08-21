@@ -284,6 +284,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const uploadLog = [];   // {filename, added, updated, at}
 
         /**
+         * Local mirror of the accumulated dataset. The cloud is the shared
+         * source of truth, but a failed write used to leave rows living only in
+         * this tab, so a reload silently destroyed them. Every change is written
+         * here first; anything not yet confirmed in the cloud stays in
+         * pendingFingerprints and is retried rather than discarded.
+         */
+        const MIRROR_KEY = 'oic_ads_mirror_v1';
+        const pendingFingerprints = new Set();
+
+        function writeMirror() {
+            try {
+                localStorage.setItem(MIRROR_KEY, JSON.stringify({
+                    rows: [...datasetRows.values()],
+                    pending: [...pendingFingerprints],
+                    at: new Date().toISOString(),
+                }));
+            } catch (e) {
+                console.warn('Mirror write failed:', e);
+            }
+        }
+
+        function readMirror() {
+            try { return JSON.parse(localStorage.getItem(MIRROR_KEY)) || null; }
+            catch (e) { return null; }
+        }
+
+        // ---- sync banner, deliberately outside every collapsible panel ----
+        const bannerEl = document.getElementById('sync-banner');
+        const bannerTitle = document.getElementById('sync-banner-title');
+        const bannerText = document.getElementById('sync-banner-text');
+        const bannerRetry = document.getElementById('sync-banner-retry');
+
+        function showBanner(title, text, kind) {
+            if (!bannerEl) return;
+            bannerEl.hidden = false;
+            bannerEl.classList.toggle('ok', kind === 'ok');
+            bannerTitle.textContent = title;
+            bannerText.textContent = text;
+            bannerRetry.hidden = kind === 'ok';
+        }
+        function hideBanner() { if (bannerEl) bannerEl.hidden = true; }
+
+        /**
          * Identity of a Meta Ads row: campaign + ad set + ad + day. Re-uploading
          * an overlapping period therefore updates the same rows rather than
          * appending duplicates, which would silently double the reported spend.
@@ -446,13 +489,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     const { error } = await client.from('ads_rows').upsert(payload.slice(i, i + 500));
                     if (error) throw error;
                 }
-                setUploadStatus(`${prefix}Saved to the team cloud — teammates will see it live.`);
+                payload.forEach(p => pendingFingerprints.delete(p.fingerprint));
+                writeMirror();
+                hideBanner();
+                setUploadStatus(`${prefix}Saved to the team cloud, rekan tim akan melihatnya.`);
             } catch (err) {
                 console.error('Cloud save failed:', err);
-                setUploadStatus(`${prefix}WARNING: could NOT save to the team cloud (${err.message || err}). The data is only in this browser tab.`, true);
+                writeMirror(); // rows stay pending, retried on demand
+                showBanner(
+                    'Data belum tersimpan ke cloud',
+                    `${rows.length} baris masih tersimpan di browser ini saja. Penyebab: ${err.message || err}`,
+                    'error');
+                setUploadStatus(`${prefix}GAGAL menyimpan ke cloud: ${err.message || err}`, true);
             } finally {
                 suppressCloudEcho = false;
             }
+        }
+
+        /**
+         * Fall back to the browser copy when the cloud cannot be read. This is
+         * what stops an upload from vanishing on reload while the cloud is
+         * unreachable or rejecting writes.
+         */
+        function restoreFromMirror() {
+            const mirror = readMirror();
+            if (!mirror || !Array.isArray(mirror.rows) || mirror.rows.length === 0) return;
+
+            datasetRows.clear();
+            mirror.rows.forEach(row => {
+                const fp = row.__fp || rowFingerprint(row);
+                datasetRows.set(fp, row);
+            });
+            (mirror.pending || []).forEach(fp => pendingFingerprints.add(fp));
+            currentParsedData = [...datasetRows.values()];
+
+            fillSelect(campaignSelect,
+                [...new Set(currentParsedData.map(rawCampaign).filter(Boolean))],
+                'All Campaigns', displayCampaign);
+
+            renderDatasetPanel();
+            updateReportDateLabel();
+            filterDataAndRender();
+            setUploadStatus(`Dipulihkan ${datasetRows.size} baris dari salinan browser ini.`);
+        }
+
+        /** Retry every row the cloud has not accepted yet. */
+        async function retryPending() {
+            if (pendingFingerprints.size === 0) { hideBanner(); return; }
+            const rows = [...pendingFingerprints]
+                .map(fp => datasetRows.get(fp))
+                .filter(Boolean);
+            if (rows.length === 0) { pendingFingerprints.clear(); hideBanner(); return; }
+            await saveRowsToCloud(rows, rows[0].__src || 'retry', '');
+            await loadRowsFromCloud();
         }
 
         /** Replace local state with everything currently in the cloud. */
@@ -463,20 +552,41 @@ document.addEventListener('DOMContentLoaded', () => {
             const { data, error } = await client.from('ads_rows').select('*');
             if (error) {
                 const text = String(error.message || error).toLowerCase();
-                setUploadStatus(
-                    (text.includes('does not exist') || text.includes('schema cache'))
-                        ? 'Table ads_rows not found — run supabase/schema.sql in the SQL Editor first.'
-                        : `Could not load team data: ${error.message}`, true);
+                const why = (text.includes('does not exist') || text.includes('schema cache'))
+                    ? 'Tabel ads_rows tidak ditemukan. Jalankan supabase/schema.sql di SQL Editor.'
+                    : (text.includes('permission') || text.includes('42501') || text.includes('policy'))
+                        ? `Akses ditolak database: ${error.message}. Periksa GRANT dan RLS untuk peran authenticated.`
+                        : `Gagal memuat data tim: ${error.message}`;
+                showBanner('Tidak bisa memuat data tim', why, 'error');
+                restoreFromMirror();
                 return;
             }
-            if (!data || data.length === 0) return;
+
+            const cloud = new Map();
+            (data || []).forEach(rec => {
+                cloud.set(rec.fingerprint, Object.assign({}, rec.data,
+                    { __src: rec.source_file, __fp: rec.fingerprint }));
+            });
+
+            // Rows still awaiting a successful write survive the refresh; the
+            // cloud copy wins for everything else.
+            pendingFingerprints.forEach(fp => {
+                if (!cloud.has(fp) && datasetRows.has(fp)) cloud.set(fp, datasetRows.get(fp));
+            });
+
+            if (cloud.size === 0) { restoreFromMirror(); return; }
 
             datasetRows.clear();
-            data.forEach(rec => {
-                const row = Object.assign({}, rec.data, { __src: rec.source_file, __fp: rec.fingerprint });
-                datasetRows.set(rec.fingerprint, row);
-            });
+            cloud.forEach((row, fp) => datasetRows.set(fp, row));
             currentParsedData = [...datasetRows.values()];
+            writeMirror();
+
+            if (pendingFingerprints.size > 0) {
+                showBanner('Sebagian data belum tersimpan ke cloud',
+                    `${pendingFingerprints.size} baris hanya ada di browser ini.`, 'error');
+            } else {
+                hideBanner();
+            }
 
             fillSelect(campaignSelect,
                 [...new Set(currentParsedData.map(rawCampaign).filter(Boolean))],
@@ -1071,9 +1181,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Drop locally too: the realtime echo is suppressed for our
                     // own writes, so nothing else would refresh this view.
                     [...datasetRows.entries()].forEach(([fp, row]) => {
-                        if (rawCampaign(row) === raw) datasetRows.delete(fp);
+                        if (rawCampaign(row) === raw) {
+                            datasetRows.delete(fp);
+                            pendingFingerprints.delete(fp);
+                        }
                     });
                     currentParsedData = [...datasetRows.values()];
+                    writeMirror();   // else restoreFromMirror() resurrects them
 
                     if (campaignAliases[raw]) { delete campaignAliases[raw]; saveAliases().catch(() => {}); }
                     if (campaignSelect && campaignSelect.value === raw) campaignSelect.value = 'all';
@@ -1137,6 +1251,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
             currentParsedData = [...datasetRows.values()];
+            // Treat every merged row as unsaved until the cloud confirms it.
+            data.forEach(row => pendingFingerprints.add(rowFingerprint(row)));
+            writeMirror();
             return { added, updated };
         }
 
@@ -1415,6 +1532,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     await clearCloudDataset();
                     datasetRows.clear();
+                    pendingFingerprints.clear();
+                    writeMirror();   // else restoreFromMirror() resurrects them
                     uploadLog.length = 0;
                     currentParsedData = [];
                     currentDataProfile = null;
@@ -1616,6 +1735,21 @@ Write a 3-paragraph executive summary covering best performing campaigns, areas 
         // ---------------------------------------------------------------------
         updateReportDateLabel();
         renderEmptyDashboard();
+
+        if (bannerRetry) {
+            bannerRetry.addEventListener('click', async () => {
+                bannerRetry.disabled = true;
+                bannerRetry.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mencoba...';
+                try { await retryPending(); }
+                catch (err) { console.error('Retry failed:', err); }
+                resetBtn(bannerRetry, '<i class="fa-solid fa-rotate"></i> Coba lagi');
+            });
+        }
+
+        // Show the browser copy immediately so the dashboard is never blank
+        // while the cloud round trip is still in flight.
+        restoreFromMirror();
+
         if (window.OICBackend) {
             window.OICBackend.whenAuthed(() => {
                 subscribeCloudDataset().catch(err => console.error('Cloud subscription failed:', err));

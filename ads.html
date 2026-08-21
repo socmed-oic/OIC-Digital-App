@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <!-- Custom CSS (?v= busts the old long-lived browser cache on redesigns) -->
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
@@ -71,6 +71,18 @@
 
             <div class="content-scroll-area">
                 
+                <!-- Always visible. Never nest this inside a panel that hides
+                     when empty, or a load failure conceals its own message. -->
+                <div id="sync-banner" class="sync-banner" hidden>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div class="sync-banner-body">
+                        <strong id="sync-banner-title"></strong>
+                        <span id="sync-banner-text"></span>
+                    </div>
+                    <button id="sync-banner-retry" class="glass-btn">
+                        <i class="fa-solid fa-rotate"></i> Coba lagi
+                    </button>
+                </div>
                 <!-- 1. META ADS & OPTIMIZATION MODULE -->
                 <section id="ads-module" class="module-section active">
                     
@@ -334,8 +346,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Supabase (UMD build: global `supabase` namespace, no bundler needed) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="js/supabase-init.js?v=3"></script>
+    <script src="js/supabase-init.js?v=4"></script>
     <!-- App Logic (must load after every library above) -->
-    <script src="js/app.js?v=3"></script>
+    <script src="js/app.js?v=4"></script>
 </body>
 </html>
