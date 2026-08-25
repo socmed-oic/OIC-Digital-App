@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OIC Digital Hub - Outlet Monitoring</title>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css?v=4">
+</head>
+<body>
+
+    <!-- OUTLET MONITORING VIEW -->
+    <div id="outlets-view" class="view-section active">
+
+        <!-- Floating Sidebar -->
+        <aside class="floating-sidebar glass-panel">
+            <div class="sidebar-logo">
+                <img src="img/logo.png" alt="OIC Logo">
+            </div>
+            <ul class="nav-links">
+                <li class="active" id="om-tab-board">
+                    <i class="fa-solid fa-clipboard-check"></i><span>Monitoring</span>
+                </li>
+            </ul>
+            <div class="sidebar-bottom">
+                <button class="glass-btn primary" onclick="window.location.href='hub.html'">
+                    <i class="fa-solid fa-arrow-left"></i><span>Exit to Hub</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <header class="floating-topbar glass-panel">
+                <div class="topbar-left">
+                    <h2 id="om-title">Outlet Monitoring</h2>
+                </div>
+                <div class="topbar-right">
+                    <select id="om-filter-city" class="glass-select">
+                        <option value="all">Semua Kota</option>
+                    </select>
+                    <select id="om-filter-status" class="glass-select">
+                        <option value="active" selected>Brief Aktif</option>
+                        <option value="done">Selesai</option>
+                        <option value="archived">Diarsipkan</option>
+                        <option value="all">Semua Status</option>
+                    </select>
+                    <button id="om-new-brief" class="glass-btn primary">
+                        <i class="fa-solid fa-plus"></i> Brief Baru
+                    </button>
+                </div>
+            </header>
+
+            <div class="content-scroll-area">
+
+                <!-- Always visible: a load or save failure must announce itself
+                     even when there is nothing else to show. -->
+                <div id="sync-banner" class="sync-banner" hidden>
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <div class="sync-banner-body">
+                        <strong id="sync-banner-title"></strong>
+                        <span id="sync-banner-text"></span>
+                    </div>
+                    <button id="sync-banner-retry" class="glass-btn">
+                        <i class="fa-solid fa-rotate"></i> Muat ulang
+                    </button>
+                </div>
+
+                <!-- ============ OVERVIEW (list of briefs) ============ -->
+                <section id="om-overview" class="module-section active">
+
+                    <div class="spatial-grid" style="margin-bottom: 4px;">
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Brief Aktif</span>
+                                <div class="glass-icon"><i class="fa-solid fa-clipboard-list"></i></div>
+                            </div>
+                            <div class="value" id="om-kpi-active">0</div>
+                            <div class="trend" style="color: var(--text-tertiary)" id="om-kpi-active-sub">Semua kota</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Tugas Terlambat</span>
+                                <div class="glass-icon" style="background: var(--red-soft); color: var(--red);"><i class="fa-solid fa-clock"></i></div>
+                            </div>
+                            <div class="value" id="om-kpi-overdue">0</div>
+                            <div class="trend" style="color: var(--text-tertiary)" id="om-kpi-overdue-sub">Lewat tenggat, belum selesai</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Jatuh Tempo 7 Hari</span>
+                                <div class="glass-icon" style="background: var(--amber-soft); color: var(--amber);"><i class="fa-solid fa-hourglass-half"></i></div>
+                            </div>
+                            <div class="value" id="om-kpi-due">0</div>
+                            <div class="trend" style="color: var(--text-tertiary)">Perlu perhatian minggu ini</div>
+                        </div>
+                        <div class="glass-card kpi-card col-span-1">
+                            <div class="kpi-header">
+                                <span class="label">Progress Rata-rata</span>
+                                <div class="glass-icon" style="background: var(--green-soft); color: var(--green);"><i class="fa-solid fa-chart-line"></i></div>
+                            </div>
+                            <div class="value" id="om-kpi-progress">0%</div>
+                            <div class="trend" style="color: var(--text-tertiary)">Tugas selesai / total</div>
+                        </div>
+                    </div>
+
+                    <div id="om-brief-grid" class="om-grid"></div>
+                    <div id="om-empty" class="om-empty" hidden>
+                        <i class="fa-solid fa-clipboard-list"></i>
+                        <h3>Belum ada brief</h3>
+                        <p>Buat brief pertama dengan tombol <b>Brief Baru</b> di kanan atas.
+                           Template standar Content Production (5 fase, 11 tugas, checklist SOP) sudah disiapkan.</p>
+                    </div>
+                </section>
+
+                <!-- ============ DETAIL (one brief) ============ -->
+                <section id="om-detail" class="module-section" style="display: none;">
+                    <div class="glass-card" style="margin-bottom: 20px; display: flex; align-items: center; gap: 16px; padding: 16px 22px; flex-wrap: wrap;">
+                        <button id="om-back" class="glass-btn" style="padding: 8px 16px;">
+                            <i class="fa-solid fa-arrow-left"></i> Semua Brief
+                        </button>
+                        <div style="flex: 1; min-width: 220px;">
+                            <h3 id="om-d-title" style="font-size: 1.15rem;"></h3>
+                            <p id="om-d-sub" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 2px;"></p>
+                        </div>
+                        <div class="om-progress-wide">
+                            <div class="om-progress-track"><div class="om-progress-fill" id="om-d-progressbar"></div></div>
+                            <span id="om-d-progresstext" class="om-progress-label">0%</span>
+                        </div>
+                        <select id="om-d-status" class="glass-select">
+                            <option value="active">Aktif</option>
+                            <option value="done">Selesai</option>
+                            <option value="archived">Diarsipkan</option>
+                        </select>
+                        <button id="om-d-delete" class="glass-btn" title="Hapus brief ini untuk seluruh tim">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+
+                    <div class="glass-card" style="margin-bottom: 20px; padding: 12px 16px;">
+                        <div class="glass-pill-group" style="display: inline-flex;">
+                            <button class="glass-tab active" data-omtab="plan">Action Plan</button>
+                            <button class="glass-tab" data-omtab="timeline">Timeline</button>
+                            <button class="glass-tab" data-omtab="sop">Checklist SOP</button>
+                            <button class="glass-tab" data-omtab="refs">Referensi</button>
+                        </div>
+                    </div>
+
+                    <div id="om-pane-plan"></div>
+                    <div id="om-pane-timeline" style="display: none;"></div>
+                    <div id="om-pane-sop" style="display: none;"></div>
+                    <div id="om-pane-refs" style="display: none;"></div>
+                </section>
+
+                <!-- ============ NEW BRIEF ============ -->
+                <section id="om-create" class="module-section" style="display: none;">
+                    <div class="glass-card" style="max-width: 720px; margin: 0 auto;">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-plus" style="color: var(--brand); margin-right: 8px;"></i> Brief Baru</h3>
+                            <span class="glass-tag">Dari template standar</span>
+                        </div>
+                        <div class="pr-form-grid">
+                            <div class="pr-field">
+                                <label for="om-f-city">Kota *</label>
+                                <input type="text" id="om-f-city" class="pr-input" list="om-city-list" placeholder="Bandung">
+                                <datalist id="om-city-list"></datalist>
+                            </div>
+                            <div class="pr-field span-2">
+                                <label for="om-f-outlet">Nama Outlet *</label>
+                                <input type="text" id="om-f-outlet" class="pr-input" placeholder="Spa Cabin Bandung">
+                            </div>
+                            <div class="pr-field span-3">
+                                <label for="om-f-title">Judul Brief *</label>
+                                <input type="text" id="om-f-title" class="pr-input" placeholder="Content Production September 2026">
+                            </div>
+                            <div class="pr-field">
+                                <label for="om-f-start">Tanggal Mulai *</label>
+                                <input type="date" id="om-f-start" class="pr-input">
+                            </div>
+                            <div class="pr-field span-2">
+                                <label for="om-f-memo">Referensi Memo</label>
+                                <input type="text" id="om-f-memo" class="pr-input" placeholder="Internal Memo No. .../Int/Memo/OIC/CDM/...">
+                            </div>
+                            <div class="pr-field span-3">
+                                <label style="display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0; font-size: 0.9rem; font-weight: 500; cursor: pointer;">
+                                    <input type="checkbox" id="om-f-template" checked>
+                                    <span>Isi otomatis dari template standar: 5 fase, 11 tugas dengan tanggal terhitung dari tanggal mulai, dan 18 item checklist SOP</span>
+                                </label>
+                            </div>
+                            <div class="pr-field span-3" style="display: flex; gap: 10px;">
+                                <button id="om-f-save" class="glass-btn primary" style="flex: 1; justify-content: center;">
+                                    <i class="fa-solid fa-check"></i> Buat Brief
+                                </button>
+                                <button id="om-f-cancel" class="glass-btn">Batal</button>
+                            </div>
+                        </div>
+                        <p id="om-f-status" class="pr-preview"></p>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Supabase (UMD build: global `supabase` namespace, no bundler needed) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-init.js?v=4"></script>
+    <!-- Module Logic -->
+    <script src="js/outlets.js?v=1"></script>
+</body>
+</html>

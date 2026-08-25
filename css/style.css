@@ -882,6 +882,119 @@ h1, h2, h3, h4, h5, h6 {
 }
 .icon-btn:hover { color: var(--text); background: var(--surface-alt); }
 
+
+/* ==========================================================================
+   OUTLET MONITORING MODULE
+   ========================================================================== */
+#outlets-view { padding: 20px; gap: 20px; box-sizing: border-box; }
+
+.om-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.om-card { padding: 20px; cursor: pointer; transition: var(--transition); }
+.om-card:hover { border-color: var(--brand-border); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.om-card:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.om-card h3 { font-size: 1.02rem; margin: 10px 0 4px; }
+.om-card-head { display: flex; gap: 8px; flex-wrap: wrap; }
+.om-card-sub { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 14px; }
+.om-card-foot {
+    display: flex; justify-content: space-between; gap: 12px;
+    font-size: 0.76rem; color: var(--text-tertiary); margin-top: 10px;
+}
+.om-card-foot span:last-child { text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.om-late-text { color: var(--red-strong) !important; font-weight: 600; }
+
+.chip.om-city { background: var(--brand-soft); color: var(--brand); }
+.chip.om-overdue { background: var(--red-soft); color: var(--red-strong); }
+
+.om-progress-track {
+    height: 8px; border-radius: 4px; background: var(--surface-alt); overflow: hidden;
+}
+.om-progress-fill {
+    height: 100%; border-radius: 4px; background: var(--green);
+    transition: width 0.3s ease;
+}
+.om-progress-fill.late { background: var(--amber); }
+.om-progress-wide { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+.om-progress-wide .om-progress-track { flex: 1; }
+.om-progress-label { font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); min-width: 38px; }
+
+.om-empty {
+    text-align: center; padding: 60px 24px; color: var(--text-tertiary);
+}
+.om-empty i { font-size: 2.4rem; margin-bottom: 14px; color: var(--border-strong); }
+.om-empty h3 { color: var(--text-secondary); margin-bottom: 8px; }
+.om-empty p { font-size: 0.9rem; line-height: 1.6; max-width: 460px; margin: 0 auto; }
+
+.om-quality { font-size: 0.76rem; color: var(--text-tertiary); margin-top: 3px; line-height: 1.45; }
+.om-row-late td:first-child { border-left: 3px solid var(--red); }
+
+/* Status select, tinted per value */
+.om-status {
+    font-family: inherit; font-size: 0.8rem; font-weight: 600;
+    border-radius: 999px; padding: 5px 10px; cursor: pointer; outline: none;
+    border: 1px solid var(--border-strong);
+    background: var(--surface); color: var(--text-secondary);
+}
+.om-status-completed { background: var(--green-soft); border-color: #bfe3c8; color: var(--green-strong); }
+.om-status-in_progress { background: var(--amber-soft); border-color: #efdcbe; color: #96650f; }
+.om-status-blocked { background: var(--red-soft); border-color: #f3cfc9; color: var(--red-strong); }
+.om-status:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* Gantt, drawn from dates (replaces the hand-typed block characters) */
+.om-gantt { position: relative; display: flex; flex-direction: column; gap: 7px; }
+.om-gantt-row { display: grid; grid-template-columns: 200px 1fr; align-items: center; gap: 12px; }
+.om-gantt-label {
+    font-size: 0.78rem; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right;
+}
+.om-gantt-track { position: relative; height: 16px; background: var(--surface-hover); border-radius: 4px; }
+.om-gantt-bar {
+    position: absolute; top: 2px; bottom: 2px; border-radius: 3px;
+    background: var(--border-strong); min-width: 8px;
+}
+.om-bar-completed { background: var(--green); }
+.om-bar-in_progress { background: var(--amber); }
+.om-bar-blocked { background: var(--red); }
+.om-gantt-bar.late { outline: 2px solid var(--red); outline-offset: 1px; }
+.om-gantt-today {
+    position: absolute; top: -4px; bottom: -4px; width: 2px;
+    background: var(--brand); opacity: 0.7; z-index: 1; border-radius: 1px;
+}
+
+/* SOP checklist rows */
+.om-check {
+    display: flex; align-items: center; gap: 14px;
+    padding: 11px 0; border-bottom: 1px solid var(--border);
+}
+.om-check:last-of-type { border-bottom: none; }
+.om-check-main { flex: 1; min-width: 0; }
+.om-check-item { font-size: 0.92rem; font-weight: 600; }
+.om-check-btns { display: flex; gap: 6px; flex: none; }
+.om-check-btn {
+    font-family: inherit; font-size: 0.78rem; font-weight: 700;
+    padding: 5px 14px; border-radius: 999px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border-strong);
+    color: var(--text-tertiary); transition: var(--transition);
+}
+.om-check-btn.pass.on { background: var(--green-soft); border-color: #bfe3c8; color: var(--green-strong); }
+.om-check-btn.fail.on { background: var(--red-soft); border-color: #f3cfc9; color: var(--red-strong); }
+.om-check-btn:hover { border-color: var(--text-tertiary); }
+.om-check-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.om-ref-link { font-size: 0.82rem; color: var(--brand); word-break: break-all; }
+.om-ref-form { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.om-ref-form .pr-input { flex: 1; min-width: 160px; }
+
+@media (max-width: 768px) {
+    #outlets-view { flex-direction: column; padding: 12px; }
+    .om-gantt-row { grid-template-columns: 110px 1fr; }
+}
+
 /* ==========================================================================
    INTERACTION POLISH
    ========================================================================== */

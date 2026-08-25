@@ -176,3 +176,115 @@ create trigger app_config_touch before update on public.app_config
 -- select tablename, rowsecurity as rls_enabled
 -- from pg_tables where schemaname = 'public'
 --   and tablename in ('pr_articles','ads_rows','app_config');
+
+-- -----------------------------------------------------------------------------
+-- 7. OUTLET MONITORING (brief produksi konten per outlet)
+--
+-- Menggantikan file Action_Plan_SOP_Content_Production_<KOTA>.xlsx yang selama
+-- ini diduplikasi manual per kota. Satu brief = satu rencana produksi untuk
+-- satu outlet, berisi tugas berfase (action plan) dan checklist SOP.
+--
+-- `references` disimpan jsonb pada brief karena berupa daftar tautan yang
+-- jarang diubah; tugas dan checklist berupa baris karena statusnya diperbarui
+-- satu per satu dan rawan saling timpa bila disimpan sebagai satu blob.
+-- -----------------------------------------------------------------------------
+create table if not exists public.outlet_briefs (
+    id          text primary key,
+    city        text not null,
+    outlet_name text not null,
+    title       text not null,
+    ref_memo    text,
+    start_date  date,
+    status      text not null default 'active',   -- active | done | archived
+    refs        jsonb not null default '[]'::jsonb,
+    created_at  timestamptz not null default now(),
+    updated_at  timestamptz not null default now()
+);
+
+create table if not exists public.brief_tasks (
+    id         text primary key,
+    brief_id   text not null references public.outlet_briefs(id) on delete cascade,
+    phase      text not null,
+    task       text not null,
+    scope      text,
+    pic        text,
+    start_date date,
+    end_date   date,
+    deliverable text,
+    quality    text,
+    status     text not null default 'pending',   -- pending | in_progress | completed | blocked
+    sort_order integer not null default 0,
+    notes      text,
+    updated_at timestamptz not null default now()
+);
+
+create table if not exists public.brief_checklist (
+    id         text primary key,
+    brief_id   text not null references public.outlet_briefs(id) on delete cascade,
+    section    text not null,   -- technical | therapist | setup | sequence
+    item       text not null,
+    spec       text,
+    mandatory  text,
+    status     text not null default 'pending',   -- pending | pass | fail
+    notes      text,
+    sort_order integer not null default 0,
+    updated_at timestamptz not null default now()
+);
+
+create index if not exists brief_tasks_brief_idx     on public.brief_tasks (brief_id, sort_order);
+create index if not exists brief_checklist_brief_idx on public.brief_checklist (brief_id, sort_order);
+create index if not exists outlet_briefs_city_idx    on public.outlet_briefs (city);
+
+alter table public.outlet_briefs   enable row level security;
+alter table public.brief_tasks     enable row level security;
+alter table public.brief_checklist enable row level security;
+
+drop policy if exists "team full access" on public.outlet_briefs;
+create policy "team full access" on public.outlet_briefs
+    for all to authenticated using (true) with check (true);
+
+drop policy if exists "team full access" on public.brief_tasks;
+create policy "team full access" on public.brief_tasks
+    for all to authenticated using (true) with check (true);
+
+drop policy if exists "team full access" on public.brief_checklist;
+create policy "team full access" on public.brief_checklist
+    for all to authenticated using (true) with check (true);
+
+-- GRANT eksplisit. Pelajaran dari insiden 42501: policy tanpa GRANT menolak
+-- semua kueri sebelum policy sempat dievaluasi.
+grant select, insert, update, delete on public.outlet_briefs   to authenticated;
+grant select, insert, update, delete on public.brief_tasks     to authenticated;
+grant select, insert, update, delete on public.brief_checklist to authenticated;
+
+revoke all on public.outlet_briefs   from anon;
+revoke all on public.brief_tasks     from anon;
+revoke all on public.brief_checklist from anon;
+
+do $$
+begin
+    if not exists (select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and tablename = 'outlet_briefs') then
+        alter publication supabase_realtime add table public.outlet_briefs;
+    end if;
+    if not exists (select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and tablename = 'brief_tasks') then
+        alter publication supabase_realtime add table public.brief_tasks;
+    end if;
+    if not exists (select 1 from pg_publication_tables
+        where pubname = 'supabase_realtime' and tablename = 'brief_checklist') then
+        alter publication supabase_realtime add table public.brief_checklist;
+    end if;
+end $$;
+
+drop trigger if exists outlet_briefs_touch on public.outlet_briefs;
+create trigger outlet_briefs_touch before update on public.outlet_briefs
+    for each row execute function public.touch_updated_at();
+
+drop trigger if exists brief_tasks_touch on public.brief_tasks;
+create trigger brief_tasks_touch before update on public.brief_tasks
+    for each row execute function public.touch_updated_at();
+
+drop trigger if exists brief_checklist_touch on public.brief_checklist;
+create trigger brief_checklist_touch before update on public.brief_checklist
+    for each row execute function public.touch_updated_at();

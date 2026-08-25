@@ -44,6 +44,18 @@ A comprehensive digital dashboard for Odilia Infinity Corporation (OIC) — cove
    Estimated, or Unestimated — and estimates should be read as
    order-of-magnitude. Domain lookups are cached locally for 7 days.
 
+3. **Outlet Monitoring** (`outlets.html`) — content production briefs per
+   outlet, replacing the per-city `Action_Plan_SOP_Content_Production_<CITY>.xlsx`
+   files. One dashboard for every city: KPI row (active briefs, overdue tasks,
+   due within 7 days, average progress), brief cards sorted worst-first, and a
+   detail view with the phased action plan, a Gantt timeline computed from task
+   dates (replacing the hand-typed block characters), the SOP & shot checklist
+   with pass/fail verification, and reference links. New briefs spawn from the
+   team's standard template (5 phases, 11 tasks with dates offset from the start
+   date, 18 checklist items), which ends the copy-a-spreadsheet workflow that
+   left Surabaya's file titled "Outlet Bandung". Seed data for the August 2026
+   Bandung and Surabaya plans lives in `supabase/seed-briefs-aug2026.sql`.
+
 ### Customer-facing
 
 **Ritual Teratai** (`gacha-oic.html`, served at `/gacha-oic`) — a spa-themed
@@ -72,7 +84,6 @@ Brand logos live in `img/brands/`, extracted from the 2026 company profile deck.
 ### Planned (hub cards are placeholders, not yet implemented)
 
 3. **Content Planning** — trend radar, strategy mix, content calendar.
-4. **Multi-Outlet Report** — regional performance and outlet rankings.
 
 ## Reach calibration (`tools/calibrate-reach.js`)
 
