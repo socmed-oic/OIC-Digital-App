@@ -23,3 +23,8 @@ where grantee = 'authenticated'
   and table_schema = 'public'
   and table_name in ('pr_articles', 'ads_rows', 'app_config')
 order by table_name, privilege_type;
+
+-- Modul Outlet Monitoring
+grant select, insert, update, delete on public.outlet_briefs   to authenticated;
+grant select, insert, update, delete on public.brief_tasks     to authenticated;
+grant select, insert, update, delete on public.brief_checklist to authenticated;
