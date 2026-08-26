@@ -62,6 +62,14 @@
     box-sizing: border-box;
 }
 
+/* Any author display rule (.sync-banner{display:flex}, grids, …) silently beats
+   the browser's built-in [hidden]{display:none} because author styles outrank
+   the UA sheet. Without this guard, elements shipped with the hidden attribute
+   (sync banners, empty states) render as empty ghosts on page load. */
+[hidden] {
+    display: none !important;
+}
+
 body {
     font-family: 'Plus Jakarta Sans', sans-serif;
     color: var(--text);
